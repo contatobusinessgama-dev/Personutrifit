@@ -12,7 +12,7 @@ import {
   isSyntheticUsernameEmail,
 } from "../lib/firestoreSync";
 import { AccountAccessState, ToastItem, UserAccessStatus } from "../types";
-import { ThemeToggleButton } from "./ThemeToggleButton";
+import { ThemeToggleButton } from "./ErrorBoundary";
 
 interface AccessStatusGateProps {
   accountAccess: AccountAccessState;

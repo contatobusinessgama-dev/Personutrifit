@@ -19,7 +19,7 @@ import {
   frequencyToActivityLevel,
 } from "../utils/metabolism";
 import { StudentAvatar } from "./StudentAvatar";
-import { ThemeToggleButton } from "./ThemeToggleButton";
+import { ThemeToggleButton } from "./ErrorBoundary";
 
 interface OnboardingFlowProps {
   initialName?: string;

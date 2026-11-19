@@ -28,7 +28,7 @@ import { compressAvatarFile } from "../utils/avatarUpload";
 import { AVATAR_PRESETS, frequencyToActivityLevel } from "../utils/metabolism";
 import { PWAInstallButton } from "./PWAInstallButton";
 import { StudentAvatar } from "./StudentAvatar";
-import { ThemeSegmentedControl } from "./ThemeToggleButton";
+import { ThemeSegmentedControl } from "./ErrorBoundary";
 
 interface ProfileTabProps {
   state: BiancoAppState;

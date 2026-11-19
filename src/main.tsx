@@ -1,7 +1,6 @@
 import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
-import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
-import { ThemeProvider } from "./context/ThemeContext.tsx";
+import App from "./App";
+import { ErrorBoundary, ThemeProvider } from "./components/ErrorBoundary";
 import "./index.css";
 
 declare global {

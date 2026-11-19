@@ -28,7 +28,7 @@ import {
   Radar as RadarIcon,
   Scale,
 } from "lucide-react";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "./ErrorBoundary";
 import { EXERCISE_MAP } from "../data/exercises";
 import { BiancoAppState, MetabolicResult, MuscleGroupId, TabId } from "../types";
 import {

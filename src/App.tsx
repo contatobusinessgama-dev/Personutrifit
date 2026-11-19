@@ -25,7 +25,7 @@ import { ProfileTab } from "./components/ProfileTab";
 import { PWAInstallButton } from "./components/PWAInstallButton";
 import { RestTimerBar } from "./components/RestTimerBar";
 import { StudentAvatar } from "./components/StudentAvatar";
-import { ThemeToggleButton } from "./components/ThemeToggleButton";
+import { ThemeToggleButton } from "./components/ErrorBoundary";
 import { ToastContainer } from "./components/ToastContainer";
 import { WorkoutsTab } from "./components/WorkoutsTab";
 import { useBiancoState } from "./hooks/useBiancoState";

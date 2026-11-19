@@ -21,7 +21,7 @@ import {
 import { isBootstrappedAdminEmail, normalizeEmail } from "../lib/firestoreSync";
 import { AccountAccessState, ToastItem } from "../types";
 import { AdminTab } from "./AdminTab";
-import { ThemeToggleButton } from "./ThemeToggleButton";
+import { ThemeToggleButton } from "./ErrorBoundary";
 
 const PRIMARY_ADMIN_EMAIL = "contato.servicosgama@gmail.com";
 

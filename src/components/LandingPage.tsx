@@ -22,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { normalizeUsername } from "../lib/firestoreSync";
-import { ThemeToggleButton } from "./ThemeToggleButton";
+import { ThemeToggleButton } from "./ErrorBoundary";
 
 const HERO_GYM_IMG = "/src/assets/images/bianco_gym_hero_1795053835269.jpg";
 const CARDIO_ZONE_IMG = "/src/assets/images/bianco_cardio_zone_1795053836665.jpg";

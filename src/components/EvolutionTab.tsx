@@ -19,7 +19,7 @@ import {
   Trash2,
   TrendingDown,
 } from "lucide-react";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "./ErrorBoundary";
 import { getTodayIso } from "../hooks/useBiancoState";
 import { BiancoAppState, BodyMeasurement, StudentProfile, TabId } from "../types";
 
