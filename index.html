@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Personal Nutri Fit — Treino Presencial, Definição e Emagrecimento Natural</title>
+    <meta
+      name="description"
+      content="Plataforma de treino presencial de academia focada em musculação, emagrecimento acelerado natural e definição corporal com Personal Trainer IA e Nutricionista IA."
+    />
+    <meta name="theme-color" content="#0B0B0D" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Personal Nutri Fit" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta property="og:title" content="Personal Nutri Fit — Treino Presencial de Academia" />
+    <meta
+      property="og:description"
+      content="Musculação presencial, controle de cargas, Personal IA e Nutricionista IA em uma plataforma completa."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem("bianco-fit-theme");
+          var isLight = saved === "light";
+          var root = document.documentElement;
+          if (isLight) {
+            root.classList.remove("dark");
+            root.style.colorScheme = "light";
+            root.style.backgroundColor = "#F8FAFC";
+          } else {
+            root.classList.add("dark");
+            root.style.colorScheme = "dark";
+            root.style.backgroundColor = "#0B0B0D";
+          }
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", isLight ? "#F8FAFC" : "#0B0B0D");
+        } catch (e) {}
+
+        function clearCachesAndReload(force) {
+          try {
+            var key = "pnf_auto_recover_v1";
+            if (!force && sessionStorage.getItem(key)) return false;
+            sessionStorage.setItem(key, "1");
+          } catch (e) {}
+
+          var tasks = [];
+          if ("serviceWorker" in navigator) {
+            tasks.push(
+              navigator.serviceWorker
+                .getRegistrations()
+                .then(function (regs) {
+                  return Promise.all(regs.map(function (r) { return r.unregister(); }));
+                })
+                .catch(function () {})
+            );
+          }
+          if ("caches" in window) {
+            tasks.push(
+              caches
+                .keys()
+                .then(function (keys) {
+                  return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+                })
+                .catch(function () {})
+            );
+          }
+          Promise.all(tasks).finally(function () {
+            window.location.reload();
+          });
+          return true;
+        }
+
+        function showBootFallback(detail) {
+          if (window.__PNF_MOUNTED__) return;
+          var el = document.getElementById("root");
+          if (!el) return;
+          var isDark = document.documentElement.classList.contains("dark");
+          var bg = isDark ? "#0B0B0D" : "#F8FAFC";
+          var card = isDark ? "#151518" : "#FFFFFF";
+          var border = isDark ? "#26262B" : "#E2E8F0";
+          var fg = isDark ? "#FFFFFF" : "#0F172A";
+          var muted = isDark ? "#A1A1AA" : "#475569";
+          el.innerHTML =
+            '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:' + bg + ';color:' + fg + ';font-family:system-ui,-apple-system,sans-serif;">' +
+              '<div style="max-width:420px;width:100%;border-radius:16px;background:' + card + ';border:1px solid ' + border + ';padding:24px;text-align:center;box-shadow:0 12px 32px rgba(0,0,0,0.18);">' +
+                '<div style="width:44px;height:44px;border-radius:12px;background:#FF6B00;color:#fff;font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">PF</div>' +
+                '<h1 style="margin:0 0 8px;font-size:18px;font-weight:700;">Atualizando o Personal Nutri Fit</h1>' +
+                '<p style="margin:0 0 18px;font-size:13px;line-height:1.5;color:' + muted + ';">Detectamos uma versão em cache antiga ou falha ao carregar os scripts da página.' + (detail ? ' (' + detail + ')' : '') + '</p>' +
+                '<button id="pnf-recover-btn" type="button" style="width:100%;min-height:46px;border:none;border-radius:12px;background:#FF6B00;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">Limpar cache e recarregar</button>' +
+              '</div>' +
+            '</div>';
+          var btn = document.getElementById("pnf-recover-btn");
+          if (btn) {
+            btn.addEventListener("click", function () {
+              clearCachesAndReload(true);
+            });
+          }
+        }
+
+        window.__PNF_RECOVER__ = clearCachesAndReload;
+
+        window.addEventListener(
+          "error",
+          function (ev) {
+            if (window.__PNF_MOUNTED__) return;
+            var target = ev && ev.target;
+            var isAssetError = target && (target.tagName === "SCRIPT" || target.tagName === "LINK");
+            if (isAssetError) {
+              if (!clearCachesAndReload(false)) {
+                showBootFallback("Erro ao carregar arquivo do aplicativo");
+              }
+              return;
+            }
+            if (ev && ev.message) {
+              showBootFallback(String(ev.message).slice(0, 120));
+            }
+          },
+          true
+        );
+
+        window.addEventListener("unhandledrejection", function (ev) {
+          if (window.__PNF_MOUNTED__) return;
+          var msg = ev && ev.reason ? String(ev.reason.message || ev.reason) : "";
+          if (/chunk|module|fetch|dynamically imported/i.test(msg)) {
+            if (!clearCachesAndReload(false)) {
+              showBootFallback("Falha de carregamento de módulo");
+            }
+          }
+        });
+      })();
+    </script>
+  </head>
+  <body class="bg-[#F8FAFC] text-[#0F172A] dark:bg-[#0B0B0D] dark:text-white antialiased selection:bg-[#FF6B00]/30 selection:text-[#0F172A] dark:selection:text-white transition-colors duration-200">
+    <div id="root">
+      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-family:system-ui,-apple-system,sans-serif;">
+        <div style="width:36px;height:36px;border-radius:10px;background:#FF6B00;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;">PF</div>
+        <span style="font-size:13px;opacity:0.7;">Carregando Personal Nutri Fit...</span>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

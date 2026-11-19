@@ -1,0 +1,500 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ==================== PRIMITIVES ====================
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidDateId(d) {
+      return d is string && d.size() == 10 && d.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Lookup-free bootstrapped admin check (strictly requires verified email; safe for allow list)
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() &&
+        request.auth.token.email is string && (
+          request.auth.token.email.lower() == 'contato.servicosgama@gmail.com' ||
+          request.auth.token.email.lower() == 'contatoservicosgama@gmail.com' ||
+          request.auth.token.email.lower() == 'contato.businessgama@gmail.com'
+        );
+    }
+
+    // Full admin check for single-doc get/update operations
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'autorizado'
+      );
+    }
+
+    function userProfileExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function isAuthorizedUserProfile(userId) {
+      return userProfileExists(userId) && (
+        isBootstrappedAdmin() ||
+        get(/databases/$(database)/documents/users/$(userId)).data.status == 'autorizado'
+      );
+    }
+
+    // ==================== VALIDATION BLUEPRINTS ====================
+    function isValidSecondaryGoals(list) {
+      return list is list &&
+        list.size() <= 2 &&
+        (list.size() == 0 || (list[0] is string && list[0].size() >= 1 && list[0].size() <= 120)) &&
+        (list.size() < 2 || (list[1] is string && list[1].size() >= 1 && list[1].size() <= 120));
+    }
+
+    function isValidMatchedExercises(list) {
+      return list is list &&
+        list.size() <= 20 &&
+        (list.size() == 0 || (list[0] is string && isValidId(list[0])));
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'ownerId', 'fullName', 'mainGoal', 'secondaryGoals', 'customGoalText',
+          'fitnessLevel', 'availableMinutes', 'muscleToday', 'activeComboId',
+          'dailyWaterGoalMl', 'currentStreak', 'lastWorkoutDate', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId', 'email', 'username', 'role', 'status',
+          'fullName', 'avatar', 'onboardingCompleted', 'weeklyFrequency',
+          'mainGoal', 'secondaryGoals', 'customGoalText',
+          'fitnessLevel', 'availableMinutes', 'muscleToday', 'activeComboId',
+          'dailyWaterGoalMl', 'currentStreak', 'lastWorkoutDate', 'createdAt', 'updatedAt'
+        ]) &&
+        data.ownerId is string && isValidId(data.ownerId) && data.ownerId == userId &&
+        (!('email' in data) || (data.email is string && data.email.size() >= 3 && data.email.size() <= 160)) &&
+        (!('username' in data) || (data.username is string && data.username.size() >= 2 && data.username.size() <= 40 && data.username.matches('^[a-z0-9._\\-]+$'))) &&
+        (!('role' in data) || data.role in ['user', 'admin']) &&
+        (!('status' in data) || data.status in ['pendente', 'autorizado', 'bloqueado']) &&
+        data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 80 &&
+        (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 65000)) &&
+        (!('onboardingCompleted' in data) || data.onboardingCompleted is bool) &&
+        (!('weeklyFrequency' in data) || data.weeklyFrequency in [3, 4, 5, 6]) &&
+        data.mainGoal is string && data.mainGoal.size() >= 1 && data.mainGoal.size() <= 120 &&
+        isValidSecondaryGoals(data.secondaryGoals) &&
+        data.customGoalText is string && data.customGoalText.size() <= 600 &&
+        data.fitnessLevel in ['Iniciante', 'Intermediário', 'Avançado'] &&
+        data.availableMinutes in [30, 45, 60, 90] &&
+        data.muscleToday is string && data.muscleToday.size() >= 1 && data.muscleToday.size() <= 100 &&
+        data.activeComboId is string && isValidId(data.activeComboId) && data.activeComboId.size() <= 64 &&
+        data.dailyWaterGoalMl is int && data.dailyWaterGoalMl >= 1000 && data.dailyWaterGoalMl <= 10000 &&
+        data.currentStreak is int && data.currentStreak >= 0 && data.currentStreak <= 10000 &&
+        data.lastWorkoutDate is string && (data.lastWorkoutDate.size() == 0 || isValidDateId(data.lastWorkoutDate)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidNutritionProfile(data) {
+      return data.keys().hasAll([
+          'userId', 'weightKg', 'heightCm', 'age', 'sex', 'activityLevel',
+          'deficitMode', 'targetWeightKg', 'tmbKcal', 'getKcal',
+          'targetCalories', 'proteinG', 'carbsG', 'fatG', 'waterMl', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId', 'weightKg', 'heightCm', 'age', 'sex', 'activityLevel',
+          'deficitMode', 'targetWeightKg', 'tmbKcal', 'getKcal',
+          'targetCalories', 'proteinG', 'carbsG', 'fatG', 'waterMl', 'createdAt', 'updatedAt'
+        ]) &&
+        data.userId is string && isValidId(data.userId) && data.userId == request.auth.uid &&
+        data.weightKg is number && data.weightKg >= 30 && data.weightKg <= 300 &&
+        data.heightCm is number && data.heightCm >= 110 && data.heightCm <= 240 &&
+        data.age is int && data.age >= 14 && data.age <= 100 &&
+        data.sex in ['M', 'F'] &&
+        data.activityLevel in ['sedentario', 'leve', 'moderado', 'intenso', 'atleta'] &&
+        data.deficitMode in ['moderado', 'acelerado'] &&
+        data.targetWeightKg is number && data.targetWeightKg >= 30 && data.targetWeightKg <= 300 &&
+        data.tmbKcal is int && data.tmbKcal >= 800 && data.tmbKcal <= 6000 &&
+        data.getKcal is int && data.getKcal >= 900 && data.getKcal <= 9000 &&
+        data.targetCalories is int && data.targetCalories >= 1000 && data.targetCalories <= 8500 &&
+        data.proteinG is int && data.proteinG >= 40 && data.proteinG <= 500 &&
+        data.carbsG is int && data.carbsG >= 20 && data.carbsG <= 1000 &&
+        data.fatG is int && data.fatG >= 20 && data.fatG <= 300 &&
+        data.waterMl is int && data.waterMl >= 1000 && data.waterMl <= 10000 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDailyWaterLog(data, dateId) {
+      return data.keys().hasAll(['userId', 'logDate', 'amountMl', 'updatedAt']) &&
+        data.keys().hasOnly(['userId', 'logDate', 'amountMl', 'updatedAt']) &&
+        data.userId is string && isValidId(data.userId) && data.userId == request.auth.uid &&
+        isValidDateId(data.logDate) && data.logDate == dateId &&
+        data.amountMl is int && data.amountMl >= 0 && data.amountMl <= 15000 &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSavedWorkout(data) {
+      return data.keys().hasAll([
+          'userId', 'title', 'category', 'source', 'content',
+          'matchedExerciseIds', 'isActive', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId', 'title', 'category', 'source', 'content',
+          'matchedExerciseIds', 'isActive', 'createdAt', 'updatedAt'
+        ]) &&
+        data.userId is string && isValidId(data.userId) && data.userId == request.auth.uid &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+        data.category is string && data.category.size() >= 1 && data.category.size() <= 100 &&
+        data.source in ['manual', 'personal_ia'] &&
+        data.content is string && data.content.size() >= 1 && data.content.size() <= 12000 &&
+        isValidMatchedExercises(data.matchedExerciseIds) &&
+        data.isActive is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidWorkoutSession(data) {
+      return data.keys().hasAll([
+          'userId', 'title', 'category', 'durationMinutes',
+          'totalVolumeKg', 'setsCompleted', 'completedDate', 'completedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId', 'title', 'category', 'durationMinutes',
+          'totalVolumeKg', 'setsCompleted', 'completedDate', 'completedAt'
+        ]) &&
+        data.userId is string && isValidId(data.userId) && data.userId == request.auth.uid &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+        data.category is string && data.category.size() >= 1 && data.category.size() <= 80 &&
+        data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 480 &&
+        data.totalVolumeKg is number && data.totalVolumeKg >= 0 && data.totalVolumeKg <= 500000 &&
+        data.setsCompleted is int && data.setsCompleted >= 0 && data.setsCompleted <= 200 &&
+        isValidDateId(data.completedDate) &&
+        data.completedAt is timestamp;
+    }
+
+    function isValidExerciseLoad(data, exerciseId) {
+      return data.keys().hasAll([
+          'userId', 'exerciseId', 'exerciseName', 'muscleGroup',
+          'equipmentType', 'sets', 'reps', 'weightKg', 'lastWeightKg', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId', 'exerciseId', 'exerciseName', 'muscleGroup',
+          'equipmentType', 'sets', 'reps', 'weightKg', 'lastWeightKg', 'updatedAt'
+        ]) &&
+        data.userId is string && isValidId(data.userId) && data.userId == request.auth.uid &&
+        data.exerciseId is string && isValidId(data.exerciseId) && data.exerciseId == exerciseId &&
+        data.exerciseName is string && data.exerciseName.size() >= 1 && data.exerciseName.size() <= 120 &&
+        data.muscleGroup is string && data.muscleGroup.size() >= 1 && data.muscleGroup.size() <= 60 &&
+        data.equipmentType is string && data.equipmentType.size() >= 1 && data.equipmentType.size() <= 60 &&
+        data.sets is int && data.sets >= 1 && data.sets <= 12 &&
+        data.reps is string && data.reps.size() >= 1 && data.reps.size() <= 40 &&
+        data.weightKg is number && data.weightKg >= 0 && data.weightKg <= 1000 &&
+        data.lastWeightKg is number && data.lastWeightKg >= 0 && data.lastWeightKg <= 1000 &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidOptionalCm(data, field, minVal, maxVal) {
+      return !(field in data) || (data[field] is number && data[field] >= minVal && data[field] <= maxVal);
+    }
+
+    function isValidBodyMeasurement(data) {
+      return data.keys().hasAll(['userId', 'weightKg', 'measuredAt', 'createdAt']) &&
+        data.keys().hasOnly([
+          'userId', 'weightKg', 'neckCm', 'chestCm', 'waistCm', 'abdomenCm',
+          'hipCm', 'armRightCm', 'armLeftCm', 'thighRightCm', 'thighLeftCm',
+          'calfCm', 'armCm', 'thighCm', 'measuredAt', 'createdAt'
+        ]) &&
+        data.userId is string && isValidId(data.userId) && data.userId == request.auth.uid &&
+        data.weightKg is number && data.weightKg >= 30 && data.weightKg <= 300 &&
+        isValidOptionalCm(data, 'neckCm', 20, 80) &&
+        isValidOptionalCm(data, 'chestCm', 50, 220) &&
+        isValidOptionalCm(data, 'waistCm', 30, 250) &&
+        isValidOptionalCm(data, 'abdomenCm', 30, 250) &&
+        isValidOptionalCm(data, 'hipCm', 50, 250) &&
+        isValidOptionalCm(data, 'armRightCm', 10, 100) &&
+        isValidOptionalCm(data, 'armLeftCm', 10, 100) &&
+        isValidOptionalCm(data, 'thighRightCm', 20, 150) &&
+        isValidOptionalCm(data, 'thighLeftCm', 20, 150) &&
+        isValidOptionalCm(data, 'calfCm', 15, 90) &&
+        isValidOptionalCm(data, 'armCm', 10, 100) &&
+        isValidOptionalCm(data, 'thighCm', 20, 150) &&
+        isValidDateId(data.measuredAt) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidAiChatMessage(data) {
+      return data.keys().hasAll(['userId', 'agentType', 'role', 'content', 'createdAt']) &&
+        data.keys().hasOnly(['userId', 'agentType', 'role', 'content', 'createdAt']) &&
+        data.userId is string && isValidId(data.userId) && data.userId == request.auth.uid &&
+        data.agentType in ['personal', 'nutri'] &&
+        data.role in ['user', 'assistant'] &&
+        data.content is string && data.content.size() >= 1 && data.content.size() <= 12000 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidUserAchievement(data, badgeId) {
+      return data.keys().hasAll(['userId', 'badgeId', 'title', 'category', 'unlockedDate', 'unlockedAt']) &&
+        data.keys().hasOnly(['userId', 'badgeId', 'title', 'category', 'unlockedDate', 'unlockedAt']) &&
+        data.userId is string && isValidId(data.userId) && data.userId == request.auth.uid &&
+        data.badgeId is string && isValidId(data.badgeId) && data.badgeId.size() <= 64 && data.badgeId == badgeId &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
+        data.category in ['Consistência', 'Treinos', 'Hábitos', 'Estratégia'] &&
+        isValidDateId(data.unlockedDate) &&
+        data.unlockedAt is timestamp;
+    }
+
+    // ==================== USER PROFILE & SUBCOLLECTIONS ====================
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+
+      allow create: if isOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        'email' in incoming() &&
+        'role' in incoming() &&
+        'status' in incoming() &&
+        request.auth.token.email is string &&
+        incoming().email == request.auth.token.email.lower() &&
+        (
+          (isBootstrappedAdmin() && incoming().role == 'admin' && incoming().status == 'autorizado') ||
+          (!isBootstrappedAdmin() && incoming().role == 'user' && incoming().status == 'pendente')
+        ) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          // Action 1: Authorized owner edits own fitness profile (strictly cannot alter role, status, email, or username)
+          (
+            isOwner(userId) &&
+            (isBootstrappedAdmin() || existing().status == 'autorizado') &&
+            (!('role' in existing()) || incoming().role == existing().role) &&
+            (!('status' in existing()) || incoming().status == existing().status) &&
+            (!('email' in existing()) || incoming().email == existing().email) &&
+            (!('username' in existing()) || incoming().username == existing().username) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'fullName', 'avatar', 'onboardingCompleted', 'weeklyFrequency',
+              'mainGoal', 'secondaryGoals', 'customGoalText',
+              'fitnessLevel', 'availableMinutes', 'muscleToday', 'activeComboId',
+              'dailyWaterGoalMl', 'currentStreak', 'lastWorkoutDate', 'updatedAt'
+            ])
+          ) ||
+          // Action 2: One-time legacy profile RBAC backfill when role/status were not yet set
+          (
+            isOwner(userId) &&
+            !('role' in existing()) &&
+            !('status' in existing()) &&
+            request.auth.token.email is string &&
+            incoming().email == request.auth.token.email.lower() &&
+            (
+              (isBootstrappedAdmin() && incoming().role == 'admin' && incoming().status == 'autorizado') ||
+              (!isBootstrappedAdmin() && incoming().role == 'user' && incoming().status == 'pendente')
+            ) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['email', 'username', 'role', 'status', 'updatedAt'])
+          ) ||
+          // Action 3: Verified admin moderates student access status or role (cannot self-lockout)
+          (
+            isAdmin() &&
+            'role' in incoming() &&
+            'status' in incoming() &&
+            !(userId == request.auth.uid && (incoming().role != 'admin' || incoming().status != 'autorizado')) &&
+            (!('email' in existing()) || incoming().email == existing().email) &&
+            (!('username' in existing()) || incoming().username == existing().username) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['role', 'status', 'updatedAt'])
+          )
+        );
+
+      allow delete: if false;
+
+      // 1. Nutrition Profile (single doc 'profile')
+      match /nutrition/{docId} {
+        allow get: if isOwner(userId) && docId == 'profile' && isAuthorizedUserProfile(userId);
+        allow list: if false;
+
+        allow create: if isOwner(userId) &&
+          docId == 'profile' &&
+          isValidNutritionProfile(incoming()) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          isAuthorizedUserProfile(userId);
+
+        allow update: if isOwner(userId) &&
+          docId == 'profile' &&
+          isValidNutritionProfile(incoming()) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'weightKg', 'heightCm', 'age', 'sex', 'activityLevel',
+            'deficitMode', 'targetWeightKg', 'tmbKcal', 'getKcal',
+            'targetCalories', 'proteinG', 'carbsG', 'fatG', 'waterMl', 'updatedAt'
+          ]) &&
+          isAuthorizedUserProfile(userId);
+
+        allow delete: if false;
+      }
+
+      // 2. Daily Water Logs
+      match /dailyWaterLogs/{dateId} {
+        allow get: if isOwner(userId) && isValidDateId(dateId) && isAuthorizedUserProfile(userId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidDateId(dateId) &&
+          isValidDailyWaterLog(incoming(), dateId) &&
+          incoming().updatedAt == request.time &&
+          isAuthorizedUserProfile(userId);
+
+        allow update: if isOwner(userId) &&
+          isValidDateId(dateId) &&
+          isValidDailyWaterLog(incoming(), dateId) &&
+          incoming().userId == existing().userId &&
+          incoming().logDate == existing().logDate &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['amountMl', 'updatedAt']) &&
+          isAuthorizedUserProfile(userId);
+
+        allow delete: if false;
+      }
+
+      // 3. Saved Workouts (Personal IA & Manual)
+      match /savedWorkouts/{workoutId} {
+        allow get: if isOwner(userId) && isValidId(workoutId) && isAuthorizedUserProfile(userId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(workoutId) &&
+          isValidSavedWorkout(incoming()) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          isAuthorizedUserProfile(userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(workoutId) &&
+          isValidSavedWorkout(incoming()) &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'category', 'source', 'content', 'matchedExerciseIds', 'isActive', 'updatedAt'
+          ]) &&
+          isAuthorizedUserProfile(userId);
+
+        allow delete: if isOwner(userId) && isValidId(workoutId) && isAuthorizedUserProfile(userId);
+      }
+
+      // 4. Workout Sessions History
+      match /workoutSessions/{sessionId} {
+        allow get: if isOwner(userId) && isValidId(sessionId) && isAuthorizedUserProfile(userId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(sessionId) &&
+          isValidWorkoutSession(incoming()) &&
+          incoming().completedAt == request.time &&
+          isAuthorizedUserProfile(userId);
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(sessionId) && isAuthorizedUserProfile(userId);
+      }
+
+      // 5. Exercise Loads (last weight & settings per machine)
+      match /exerciseLoads/{exerciseId} {
+        allow get: if isOwner(userId) && isValidId(exerciseId) && isAuthorizedUserProfile(userId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(exerciseId) &&
+          isValidExerciseLoad(incoming(), exerciseId) &&
+          incoming().updatedAt == request.time &&
+          isAuthorizedUserProfile(userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(exerciseId) &&
+          isValidExerciseLoad(incoming(), exerciseId) &&
+          incoming().userId == existing().userId &&
+          incoming().exerciseId == existing().exerciseId &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'exerciseName', 'muscleGroup', 'equipmentType', 'sets', 'reps',
+            'weightKg', 'lastWeightKg', 'updatedAt'
+          ]) &&
+          isAuthorizedUserProfile(userId);
+
+        allow delete: if false;
+      }
+
+      // 6. Body Measurements History
+      match /bodyMeasurements/{measurementId} {
+        allow get: if isOwner(userId) && isValidId(measurementId) && isAuthorizedUserProfile(userId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(measurementId) &&
+          isValidBodyMeasurement(incoming()) &&
+          incoming().createdAt == request.time &&
+          isAuthorizedUserProfile(userId);
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(measurementId) && isAuthorizedUserProfile(userId);
+      }
+
+      // 7. AI Chat Messages (Personal IA & Nutri IA)
+      match /aiChatMessages/{messageId} {
+        allow get: if isOwner(userId) && isValidId(messageId) && isAuthorizedUserProfile(userId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(messageId) &&
+          isValidAiChatMessage(incoming()) &&
+          incoming().createdAt == request.time &&
+          isAuthorizedUserProfile(userId);
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(messageId) && isAuthorizedUserProfile(userId);
+      }
+
+      // 8. Unlocked Achievements / Badges
+      match /achievements/{badgeId} {
+        allow get: if isOwner(userId) && isValidId(badgeId) && isAuthorizedUserProfile(userId);
+        allow list: if isOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(badgeId) &&
+          isValidUserAchievement(incoming(), badgeId) &&
+          incoming().unlockedAt == request.time &&
+          isAuthorizedUserProfile(userId);
+
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+  }
+}

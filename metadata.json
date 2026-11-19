@@ -1,0 +1,8 @@
+{
+  "name": "Personal Nutri Fit",
+  "description": "Plataforma de treino presencial de academia focada em musculação, emagrecimento acelerado natural e definição corporal com Personal Trainer IA e Nutricionista IA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,208 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: "Outfit", system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --color-canvas: #0B0B0D;
+  --color-surface: #151518;
+  --color-surface-elevated: #1C1C21;
+  --color-hairline: #26262B;
+  --color-brand: #FF6B00;
+  --color-brand-hover: #F97316;
+  --color-muted: #A1A1AA;
+}
+
+@layer base {
+  html {
+    background-color: #F8FAFC;
+    color: #0F172A;
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html.dark {
+    background-color: #0B0B0D;
+    color: #FFFFFF;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #F8FAFC inset !important;
+    -webkit-text-fill-color: #0F172A !important;
+    caret-color: #0F172A;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  html.dark input:-webkit-autofill,
+  html.dark input:-webkit-autofill:hover,
+  html.dark input:-webkit-autofill:focus,
+  html.dark input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #0B0B0D inset !important;
+    -webkit-text-fill-color: #FFFFFF !important;
+    caret-color: #FFFFFF;
+  }
+}
+
+/* Custom adaptive scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+html.dark ::-webkit-scrollbar-track {
+  background: #0B0B0D;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #26262B;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3A3A42;
+}
+
+/* Clean markdown styling inside AI chat messages (Light + Dark) */
+.ai-prose h1,
+.ai-prose h2,
+.ai-prose h3,
+.ai-prose h4 {
+  font-family: var(--font-display);
+  color: #0F172A;
+  font-weight: 700;
+  margin-top: 0.9rem;
+  margin-bottom: 0.4rem;
+}
+
+.ai-prose h3 {
+  font-size: 1rem;
+  color: #EA580C;
+}
+
+.ai-prose p {
+  margin-bottom: 0.65rem;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.ai-prose p:last-child {
+  margin-bottom: 0;
+}
+
+.ai-prose ul,
+.ai-prose ol {
+  margin: 0.5rem 0 0.75rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ai-prose ul {
+  list-style-type: disc;
+}
+
+.ai-prose ol {
+  list-style-type: decimal;
+}
+
+.ai-prose li {
+  color: #334155;
+  line-height: 1.55;
+}
+
+.ai-prose strong {
+  color: #0F172A;
+  font-weight: 600;
+}
+
+.ai-prose hr {
+  border-color: #E2E8F0;
+  margin: 0.85rem 0;
+}
+
+html.dark .ai-prose h1,
+html.dark .ai-prose h2,
+html.dark .ai-prose h3,
+html.dark .ai-prose h4 {
+  color: #FFFFFF;
+}
+
+html.dark .ai-prose h3 {
+  color: #FF8533;
+}
+
+html.dark .ai-prose p,
+html.dark .ai-prose li {
+  color: #E4E4E7;
+}
+
+html.dark .ai-prose strong {
+  color: #FFFFFF;
+}
+
+html.dark .ai-prose hr {
+  border-color: #26262B;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Elegant AI typing indicator (compositor-only transform & opacity) */
+@keyframes aiTypingWave {
+  0%, 60%, 100% {
+    transform: translateY(0) scale(0.86);
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-4px) scale(1.12);
+    opacity: 1;
+  }
+}
+
+.ai-typing-dot {
+  animation: aiTypingWave 1.25s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  will-change: transform, opacity;
+}
+
+.ai-typing-dot:nth-child(2) {
+  animation-delay: 160ms;
+}
+
+.ai-typing-dot:nth-child(3) {
+  animation-delay: 320ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-typing-dot {
+    animation: none;
+    opacity: 0.85;
+    transform: none;
+  }
+}

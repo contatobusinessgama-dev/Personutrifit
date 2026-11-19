@@ -1,0 +1,32 @@
+{
+  "id": "/",
+  "name": "Personal Nutri Fit",
+  "short_name": "Personal Nutri Fit",
+  "description": "Plataforma de treino presencial de academia focada em musculação, emagrecimento acelerado natural e definição corporal.",
+  "theme_color": "#0B0B0D",
+  "background_color": "#0B0B0D",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

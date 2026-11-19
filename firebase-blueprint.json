@@ -1,0 +1,371 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Perfil do aluno, avatar, onboarding, objetivos de treino e preferências do Bianco Fit.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "username": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40,
+          "pattern": "^[a-z0-9._\\-]+$"
+        },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "status": {
+          "type": "string",
+          "enum": ["pendente", "autorizado", "bloqueado"]
+        },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "avatar": { "type": "string", "maxLength": 65000 },
+        "onboardingCompleted": { "type": "boolean" },
+        "weeklyFrequency": { "type": "integer" },
+        "mainGoal": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "secondaryGoals": { "type": "array" },
+        "customGoalText": { "type": "string", "maxLength": 600 },
+        "fitnessLevel": {
+          "type": "string",
+          "enum": ["Iniciante", "Intermediário", "Avançado"]
+        },
+        "availableMinutes": { "type": "integer" },
+        "muscleToday": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "activeComboId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "dailyWaterGoalMl": { "type": "integer" },
+        "currentStreak": { "type": "integer" },
+        "lastWorkoutDate": { "type": "string", "maxLength": 10 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerId",
+        "email",
+        "role",
+        "status",
+        "fullName",
+        "mainGoal",
+        "secondaryGoals",
+        "customGoalText",
+        "fitnessLevel",
+        "availableMinutes",
+        "muscleToday",
+        "activeComboId",
+        "dailyWaterGoalMl",
+        "currentStreak",
+        "lastWorkoutDate",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "NutritionProfile": {
+      "title": "NutritionProfile",
+      "description": "Dados metabólicos (Mifflin-St Jeor), meta calórica, macros e meta de água.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "weightKg": { "type": "number" },
+        "heightCm": { "type": "number" },
+        "age": { "type": "integer" },
+        "sex": { "type": "string", "enum": ["M", "F"] },
+        "activityLevel": {
+          "type": "string",
+          "enum": ["sedentario", "leve", "moderado", "intenso", "atleta"]
+        },
+        "deficitMode": { "type": "string", "enum": ["moderado", "acelerado"] },
+        "targetWeightKg": { "type": "number" },
+        "tmbKcal": { "type": "integer" },
+        "getKcal": { "type": "integer" },
+        "targetCalories": { "type": "integer" },
+        "proteinG": { "type": "integer" },
+        "carbsG": { "type": "integer" },
+        "fatG": { "type": "integer" },
+        "waterMl": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "weightKg",
+        "heightCm",
+        "age",
+        "sex",
+        "activityLevel",
+        "deficitMode",
+        "targetWeightKg",
+        "tmbKcal",
+        "getKcal",
+        "targetCalories",
+        "proteinG",
+        "carbsG",
+        "fatG",
+        "waterMl",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DailyWaterLog": {
+      "title": "DailyWaterLog",
+      "description": "Registro diário de água ingerida em ml.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "logDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "amountMl": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "logDate", "amountMl", "updatedAt"]
+    },
+    "SavedWorkout": {
+      "title": "SavedWorkout",
+      "description": "Ficha de treino salva gerada pelo Personal IA ou personalizada.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "source": { "type": "string", "enum": ["manual", "personal_ia"] },
+        "content": { "type": "string", "minLength": 1, "maxLength": 12000 },
+        "matchedExerciseIds": { "type": "array" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "title",
+        "category",
+        "source",
+        "content",
+        "matchedExerciseIds",
+        "isActive",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WorkoutSession": {
+      "title": "WorkoutSession",
+      "description": "Histórico de sessões de treino finalizadas.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "durationMinutes": { "type": "integer" },
+        "totalVolumeKg": { "type": "number" },
+        "setsCompleted": { "type": "integer" },
+        "completedDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "title",
+        "category",
+        "durationMinutes",
+        "totalVolumeKg",
+        "setsCompleted",
+        "completedDate",
+        "completedAt"
+      ]
+    },
+    "ExerciseLoad": {
+      "title": "ExerciseLoad",
+      "description": "Última carga, séries e repetições registradas por exercício.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "exerciseId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "exerciseName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "muscleGroup": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "equipmentType": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "sets": { "type": "integer" },
+        "reps": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "weightKg": { "type": "number" },
+        "lastWeightKg": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "exerciseId",
+        "exerciseName",
+        "muscleGroup",
+        "equipmentType",
+        "sets",
+        "reps",
+        "weightKg",
+        "lastWeightKg",
+        "updatedAt"
+      ]
+    },
+    "BodyMeasurement": {
+      "title": "BodyMeasurement",
+      "description": "Avaliação física completa: peso corporal e medidas anatômicas em cm.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "weightKg": { "type": "number" },
+        "neckCm": { "type": "number" },
+        "chestCm": { "type": "number" },
+        "waistCm": { "type": "number" },
+        "abdomenCm": { "type": "number" },
+        "hipCm": { "type": "number" },
+        "armRightCm": { "type": "number" },
+        "armLeftCm": { "type": "number" },
+        "thighRightCm": { "type": "number" },
+        "thighLeftCm": { "type": "number" },
+        "calfCm": { "type": "number" },
+        "armCm": { "type": "number" },
+        "thighCm": { "type": "number" },
+        "measuredAt": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "weightKg", "measuredAt", "createdAt"]
+    },
+    "AiChatMessage": {
+      "title": "AiChatMessage",
+      "description": "Mensagem persistida no histórico de conversas do Personal IA ou Nutri IA.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "agentType": { "type": "string", "enum": ["personal", "nutri"] },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string", "minLength": 1, "maxLength": 12000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "agentType", "role", "content", "createdAt"]
+    },
+    "UserAchievement": {
+      "title": "UserAchievement",
+      "description": "Conquista ou badge desbloqueado pelo aluno no Bianco Fit.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "badgeId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "category": {
+          "type": "string",
+          "enum": ["Consistência", "Treinos", "Hábitos", "Estratégia"]
+        },
+        "unlockedDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "unlockedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "badgeId",
+        "title",
+        "category",
+        "unlockedDate",
+        "unlockedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Documento principal de perfil, onboarding, avatar, objetivos e streak do aluno."
+    },
+    "/users/{userId}/nutrition/{docId}": {
+      "schema": { "$ref": "#/entities/NutritionProfile" },
+      "description": "Perfil nutricional e cálculos metabólicos (documento 'profile')."
+    },
+    "/users/{userId}/dailyWaterLogs/{dateId}": {
+      "schema": { "$ref": "#/entities/DailyWaterLog" },
+      "description": "Controle diário de água ingerida indexado por YYYY-MM-DD."
+    },
+    "/users/{userId}/savedWorkouts/{workoutId}": {
+      "schema": { "$ref": "#/entities/SavedWorkout" },
+      "description": "Fichas de treino salvas do Personal IA ou manuais."
+    },
+    "/users/{userId}/workoutSessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/WorkoutSession" },
+      "description": "Histórico de sessões concluídas com duração e volume total."
+    },
+    "/users/{userId}/exerciseLoads/{exerciseId}": {
+      "schema": { "$ref": "#/entities/ExerciseLoad" },
+      "description": "Última carga, séries e repetições por aparelho/exercício."
+    },
+    "/users/{userId}/bodyMeasurements/{measurementId}": {
+      "schema": { "$ref": "#/entities/BodyMeasurement" },
+      "description": "Registros de avaliação física completa (peso e medidas corporais)."
+    },
+    "/users/{userId}/aiChatMessages/{messageId}": {
+      "schema": { "$ref": "#/entities/AiChatMessage" },
+      "description": "Histórico de conversas com Personal IA e Nutricionista IA."
+    },
+    "/users/{userId}/achievements/{badgeId}": {
+      "schema": { "$ref": "#/entities/UserAchievement" },
+      "description": "Badges e conquistas desbloqueadas pelo aluno com data de desbloqueio."
+    }
+  }
+}
