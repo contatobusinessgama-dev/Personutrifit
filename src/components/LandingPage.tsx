@@ -433,7 +433,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </div>
 
                   {/* Always-visible Google Auth Button at Top of Login Card */}
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <button
                       type="button"
                       disabled={authBusy}
@@ -452,7 +452,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       <span>Continuar com Google</span>
                     </button>
 
-                    <div className="relative flex items-center justify-center">
+                    {activeError && (
+                      <div
+                        role="alert"
+                        className="rounded-xl bg-red-500/10 border border-red-500/35 px-3.5 py-2.5 text-xs text-red-700 dark:text-red-300 flex items-start gap-2.5 leading-relaxed"
+                      >
+                        <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                        <span className="break-words">{activeError}</span>
+                      </div>
+                    )}
+
+                    <div className="relative flex items-center justify-center pt-1">
                       <div className="w-full border-t border-[#E2E8F0] dark:border-[#26262B]" />
                       <span className="px-3 text-[11px] font-medium text-[#64748B] dark:text-[#71717A] bg-white dark:bg-[#151518] whitespace-nowrap">
                         ou continue com e-mail e senha

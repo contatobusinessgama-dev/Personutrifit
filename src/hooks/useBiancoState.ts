@@ -478,13 +478,28 @@ export function useBiancoState(
       }));
 
       try {
+        const hasGoogleProvider = Boolean(
+          firebaseUser.providerData?.some((p) => p?.providerId === "google.com")
+        );
+        if (hasGoogleProvider && !firebaseUser.emailVerified) {
+          try {
+            await firebaseUser.getIdToken(true);
+            await firebaseUser.reload();
+          } catch {
+            // Ignore reload error on slow connections
+          }
+        }
+        const isEmailVerified = Boolean(
+          firebaseUser.emailVerified || hasGoogleProvider
+        );
+
         const currentLocal = stateRef.current;
         const currentMetab = calculateMetabolism(currentLocal.profile);
         const accessResult = await ensureCloudUserProfile(
           firebaseUser.uid,
           effectiveDisplayName,
           rawEmail,
-          Boolean(firebaseUser.emailVerified),
+          isEmailVerified,
           currentLocal,
           currentMetab,
           streakRef.current,
@@ -506,7 +521,7 @@ export function useBiancoState(
           status: accessResult.status,
           loaded: true,
           canListDirectory:
-            Boolean(firebaseUser.emailVerified) &&
+            isEmailVerified &&
             isBootstrappedAdminEmail(accessResult.email),
           error: null,
         });
@@ -577,10 +592,15 @@ export function useBiancoState(
     const uid = user.uid;
     let cancelled = false;
 
+    const hasGoogleProvider = Boolean(
+      user.providerData?.some((p) => p?.providerId === "google.com")
+    );
+    const isEmailVerified = Boolean(user.emailVerified || hasGoogleProvider);
+
     const unsub = subscribeCloudUserAccess(
       uid,
       user.email,
-      Boolean(user.emailVerified),
+      isEmailVerified,
       user.displayName,
       (fresh) => {
         if (cancelled || auth.currentUser?.uid !== uid) return;
@@ -605,7 +625,7 @@ export function useBiancoState(
             status: fresh.status,
             loaded: true,
             canListDirectory:
-              Boolean(user.emailVerified) && isBootstrappedAdminEmail(fresh.email),
+              isEmailVerified && isBootstrappedAdminEmail(fresh.email),
             error: null,
           };
         });
@@ -658,10 +678,16 @@ export function useBiancoState(
     }
 
     try {
+      const hasGoogleProvider = Boolean(
+        firebaseUser.providerData?.some((p) => p?.providerId === "google.com")
+      );
+      const isEmailVerified = Boolean(
+        firebaseUser.emailVerified || hasGoogleProvider
+      );
       const fresh = await fetchCloudUserAccess(
         firebaseUser.uid,
         firebaseUser.email,
-        Boolean(firebaseUser.emailVerified),
+        isEmailVerified,
         firebaseUser.displayName
       );
       const isAuthorized = fresh.status === "autorizado" || fresh.role === "admin";
@@ -674,7 +700,7 @@ export function useBiancoState(
         status: fresh.status,
         loaded: true,
         canListDirectory:
-          Boolean(firebaseUser.emailVerified) &&
+          isEmailVerified &&
           isBootstrappedAdminEmail(fresh.email),
         error: null,
       });
@@ -903,10 +929,12 @@ export function useBiancoState(
       return { ok: false, error: configMsg };
     }
 
+    // Execute signInWithPopup synchronously inside the user gesture BEFORE awaiting any promise
+    // so Safari, iOS, mobile Chrome, and embedded browsers do not block the popup window.
+    const popupPromise = signInWithPopup(auth, googleProvider);
     setAuthBusy(true);
     try {
-      await ensureLocalAuthPersistence();
-      const cred = await signInWithPopup(auth, googleProvider);
+      const cred = await popupPromise;
       setUser(cred.user);
       return { ok: true };
     } catch (err) {
@@ -922,13 +950,13 @@ export function useBiancoState(
           return { ok: true, redirecting: true };
         } catch (redirectErr) {
           const parsedRedirect = formatGoogleAuthError(redirectErr);
-          console.error("[Bianco Fit Auth] Erro ao redirecionar login com Google:", redirectErr);
+          console.error("[Personal Nutri Fit Auth] Erro ao redirecionar login com Google:", redirectErr);
           setAuthError(parsedRedirect.friendly);
           return { ok: false, error: parsedRedirect.friendly };
         }
       }
 
-      console.error("[Bianco Fit Auth] Erro ao entrar com Google:", {
+      console.error("[Personal Nutri Fit Auth] Erro ao entrar com Google:", {
         code: parsed.code,
         message: parsed.rawMessage,
         projectId: cfgCheck.projectId,

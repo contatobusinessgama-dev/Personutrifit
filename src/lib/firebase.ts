@@ -154,52 +154,79 @@ export function formatGoogleAuthError(err: unknown): {
     return {
       code,
       rawMessage,
-      friendly: "Login com Google cancelado.",
+      friendly: "A janela de login do Google foi fechada antes de concluir. Clique em Continuar com Google e selecione sua conta.",
       cancelled: true,
       shouldFallbackToRedirect: false,
     };
   }
 
   if (
-    code === "auth/popup-blocked" ||
     code === "auth/operation-not-supported-in-this-environment" ||
-    lower.includes("popup-blocked")
+    lower.includes("operation-not-supported-in-this-environment")
   ) {
     return {
       code,
       rawMessage,
-      friendly: "O navegador bloqueou a janela do Google. Redirecionando para concluir o login...",
+      friendly: "Este ambiente não suporta pop-up. Redirecionando para o login do Google...",
       cancelled: false,
       shouldFallbackToRedirect: true,
     };
   }
 
-  let friendly = "Não foi possível entrar com o Google agora. Tente novamente ou use e-mail e senha.";
+  if (code === "auth/popup-blocked" || lower.includes("popup-blocked")) {
+    return {
+      code,
+      rawMessage,
+      friendly:
+        "O navegador bloqueou a janela pop-up do Google. Permita pop-ups para este site no ícone da barra de endereço e clique novamente em 'Continuar com Google'.",
+      cancelled: false,
+      shouldFallbackToRedirect: false,
+    };
+  }
+
+  let friendly =
+    "Não foi possível entrar com o Google agora. Tente novamente ou use e-mail e senha.";
 
   if (
     code === "auth/unauthorized-domain" ||
     lower.includes("unauthorized-domain")
   ) {
-    const host = typeof window !== "undefined" ? window.location.hostname : "este domínio";
-    friendly = `O domínio "${host}" precisa estar autorizado em Firebase Console → Authentication → Settings → Authorized domains.`;
+    const host =
+      typeof window !== "undefined" && window.location?.hostname
+        ? window.location.hostname
+        : "este domínio";
+    friendly = `Domínio não autorizado no Firebase (${host}). Adicione "${host}" em Firebase Console → Authentication → Configurações → Domínios autorizados (projeto gen-lang-client-0632919017).`;
   } else if (
     code === "auth/operation-not-allowed" ||
     lower.includes("operation-not-allowed")
   ) {
-    friendly = "O login com Google não está ativado no Firebase Authentication.";
+    friendly =
+      "O login com Google não está ativado no Firebase Console (Authentication → Método de login → Google).";
   } else if (
     code === "auth/network-request-failed" ||
     lower.includes("network-request-failed") ||
     lower.includes("failed to fetch")
   ) {
-    friendly = "Falha de conexão: verifique sua internet e tente novamente.";
+    friendly = "Falha de conexão: verifique sua internet ou bloqueadores de anúncios e tente novamente.";
   } else if (
     code === "auth/account-exists-with-different-credential" ||
     lower.includes("account-exists-with-different-credential")
   ) {
-    friendly = "Já existe uma conta com este e-mail usando outro método. Entre com e-mail e senha.";
+    friendly =
+      "Já existe uma conta com este e-mail cadastrada por senha. Entre com seu e-mail e senha abaixo.";
   } else if (code === "auth/user-disabled" || lower.includes("user-disabled")) {
     friendly = "Esta conta foi desabilitada pelo administrador.";
+  } else if (
+    code === "auth/internal-error" ||
+    lower.includes("internal-error")
+  ) {
+    const host =
+      typeof window !== "undefined" && window.location?.hostname
+        ? window.location.hostname
+        : "este domínio";
+    friendly = `Erro interno de autenticação do Google no domínio "${host}". Confirme se "${host}" está em Firebase Console → Authentication → Settings → Authorized domains e se o provedor Google está ativo.`;
+  } else if (code) {
+    friendly = `Não foi possível entrar com o Google (${code}). Tente novamente ou use e-mail e senha.`;
   }
 
   return {
