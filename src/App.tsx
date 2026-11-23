@@ -161,6 +161,8 @@ export default function App() {
     swapExerciseMachine,
     finishWorkout,
     logModalitySession,
+    logCardioSession,
+    deleteWorkoutSession,
     saveAiPlan,
     clearSavedPlan,
     addMeasurement,
@@ -731,6 +733,8 @@ export default function App() {
                     onSwapMachine={swapExerciseMachine}
                     onFinishWorkout={finishWorkout}
                     onLogModality={logModalitySession}
+                    onLogCardioSession={logCardioSession}
+                    onDeleteWorkoutSession={deleteWorkoutSession}
                     onClearSavedPlan={clearSavedPlan}
                     onStartRest={startRestTimer}
                     onToast={addToast}
@@ -770,6 +774,7 @@ export default function App() {
                     state={state}
                     onAddMeasurement={addMeasurement}
                     onDeleteMeasurement={deleteMeasurement}
+                    onDeleteWorkoutSession={deleteWorkoutSession}
                     onUpdateProfile={updateProfile}
                     onNavigateTab={handleNavigateTab}
                     onToast={addToast}

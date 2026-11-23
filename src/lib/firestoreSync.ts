@@ -825,6 +825,19 @@ export async function createCloudWorkoutSession(
   }
 }
 
+export async function deleteCloudWorkoutSession(
+  uid: string,
+  sessionId: string
+): Promise<void> {
+  const safeId = sanitizeId(sessionId, "session");
+  const docPath = `users/${uid}/workoutSessions/${safeId}`;
+  try {
+    await deleteDoc(doc(db, "users", uid, "workoutSessions", safeId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, docPath);
+  }
+}
+
 export async function upsertCloudExerciseLoad(
   uid: string,
   exerciseId: string,
@@ -1173,14 +1186,37 @@ export async function loadCloudUserState(
     workoutHistory = sessionsSnap.docs
       .map((docSnap) => {
         const d = docSnap.data();
+        const titleStr = String(d.title || "Treino");
+        const categoryStr = String(d.category || "Musculação");
+        const kmMatch = titleStr.match(/([0-9]+(?:[.,][0-9]+)?)\s*km/i);
+        const kcalMatch = titleStr.match(/([0-9]+)\s*kcal/i);
+        const distanceKm = kmMatch
+          ? Number(parseFloat(kmMatch[1].replace(",", ".")).toFixed(2))
+          : undefined;
+        const caloriesKcal = kcalMatch ? Number(kcalMatch[1]) : undefined;
+        const intensityMatch = categoryStr.match(/\b(Leve|Moderado|Intenso|HIIT)\b/i);
+        const intensity = intensityMatch
+          ? ((intensityMatch[1].toUpperCase() === "HIIT"
+              ? "HIIT"
+              : intensityMatch[1].charAt(0).toUpperCase() +
+                intensityMatch[1].slice(1).toLowerCase()) as
+              | "Leve"
+              | "Moderado"
+              | "Intenso"
+              | "HIIT")
+          : undefined;
+
         return {
           id: docSnap.id,
           date: String(d.completedDate || todayIso),
-          title: String(d.title || "Treino"),
-          muscleGroup: String(d.category || "Musculação"),
+          title: titleStr,
+          muscleGroup: categoryStr,
           totalVolumeKg: Number(d.totalVolumeKg || 0),
           setsCompleted: Number(d.setsCompleted || 0),
           durationMin: Number(d.durationMinutes || 45),
+          ...(distanceKm !== undefined ? { distanceKm } : {}),
+          ...(caloriesKcal !== undefined ? { caloriesKcal } : {}),
+          ...(intensity !== undefined ? { intensity } : {}),
           _ts: d.completedAt?.toMillis?.() ?? 0,
         };
       })

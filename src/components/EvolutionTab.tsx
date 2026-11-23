@@ -10,8 +10,10 @@ import {
   YAxis,
 } from "recharts";
 import {
+  Activity,
   Calendar,
   Dumbbell,
+  Flame,
   Plus,
   Ruler,
   Scale,
@@ -27,6 +29,7 @@ interface EvolutionTabProps {
   state: BiancoAppState;
   onAddMeasurement: (entry: Omit<BodyMeasurement, "id">) => void;
   onDeleteMeasurement: (id: string) => void;
+  onDeleteWorkoutSession?: (id: string) => void;
   onUpdateProfile: (patch: Partial<StudentProfile>) => void;
   onNavigateTab: (tab: TabId) => void;
   onToast: (message: string, tone?: "success" | "info" | "warning") => void;
@@ -56,6 +59,7 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
   state,
   onAddMeasurement,
   onDeleteMeasurement,
+  onDeleteWorkoutSession,
   onUpdateProfile,
   onNavigateTab,
   onToast,
@@ -659,15 +663,15 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
         )}
       </section>
 
-      {/* Completed Workouts History */}
+      {/* Completed Workouts & Cardio History */}
       <section
-        aria-label="Histórico de treinos finalizados"
+        aria-label="Histórico de treinos e cardio finalizados"
         className="rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] shadow-sm dark:shadow-none overflow-hidden"
       >
         <div className="p-5 border-b border-[#E2E8F0] dark:border-[#26262B] flex items-center justify-between gap-3">
           <h2 className="text-base font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
             <Dumbbell className="w-4 h-4 text-[#FF6B00]" />
-            <span>Treinos Finalizados</span>
+            <span>Histórico de Treinos & Sessões de Cardio</span>
           </h2>
           <span className="font-mono text-xs text-[#475569] dark:text-[#A1A1AA] tabular-nums">
             {state.workoutHistory.length} registros
@@ -677,10 +681,10 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
         {state.workoutHistory.length === 0 ? (
           <div className="p-8 text-center space-y-3">
             <p className="text-sm font-semibold text-[#0F172A] dark:text-white">
-              Nenhum treino finalizado ainda
+              Nenhum treino ou cardio finalizado ainda
             </p>
             <p className="text-xs text-[#475569] dark:text-[#A1A1AA] max-w-md mx-auto">
-              Conclua seu primeiro treino na aba Treinos para registrar o volume total levantado e ativar sua sequência de dias.
+              Conclua seu treino de musculação ou registre uma sessão no Controle de Cardio na aba Treinos para acompanhar sua evolução.
             </p>
             <button
               type="button"
@@ -688,49 +692,98 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
               className="min-h-[42px] px-5 rounded-xl bg-[#FF6B00] hover:bg-[#F97316] text-xs font-bold text-white inline-flex items-center gap-2 transition-colors cursor-pointer"
             >
               <Dumbbell className="w-4 h-4" />
-              <span>Ir para Treinos</span>
+              <span>Ir para Treinos & Cardio</span>
             </button>
           </div>
         ) : (
           <div className="divide-y divide-[#E2E8F0] dark:divide-[#26262B]">
-            {state.workoutHistory.map((item) => (
-              <div
-                key={item.id}
-                className="p-4 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-[#F8FAFC] dark:hover:bg-[#1C1C21]/40 transition-colors"
-              >
-                <div>
-                  <div className="flex items-center gap-2 text-xs text-[#475569] dark:text-[#A1A1AA]">
-                    <Calendar className="w-3.5 h-3.5 text-[#FF6B00]" />
-                    <span className="font-mono tabular-nums">
-                      {formatFullDateBr(item.date)}
-                    </span>
-                    <span aria-hidden="true">·</span>
-                    <span>{item.muscleGroup}</span>
-                  </div>
-                  <h3 className="mt-0.5 text-base font-bold text-[#0F172A] dark:text-white">
-                    {item.title}
-                  </h3>
-                </div>
+            {state.workoutHistory.map((item) => {
+              const isCardio =
+                item.id.startsWith("cardio_") ||
+                item.muscleGroup.toLowerCase().includes("cardio") ||
+                item.muscleGroup.toLowerCase().includes("spinning");
 
-                <div className="flex items-center gap-4 text-xs font-mono tabular-nums text-[#334155] dark:text-[#D4D4D8]">
-                  <span>{item.durationMin} min</span>
-                  <span aria-hidden="true" className="text-[#CBD5E1] dark:text-[#52525B]">
-                    ·
-                  </span>
-                  <span>{item.setsCompleted} séries</span>
-                  {item.totalVolumeKg > 0 && (
-                    <>
-                      <span aria-hidden="true" className="text-[#CBD5E1] dark:text-[#52525B]">
-                        ·
+              return (
+                <div
+                  key={item.id}
+                  className="p-4 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-[#F8FAFC] dark:hover:bg-[#1C1C21]/40 transition-colors"
+                >
+                  <div>
+                    <div className="flex items-center gap-2 text-xs text-[#475569] dark:text-[#A1A1AA]">
+                      {isCardio ? (
+                        <Activity className="w-3.5 h-3.5 text-[#FF6B00]" />
+                      ) : (
+                        <Calendar className="w-3.5 h-3.5 text-[#FF6B00]" />
+                      )}
+                      <span className="font-mono tabular-nums">
+                        {formatFullDateBr(item.date)}
                       </span>
-                      <span className="text-[#FF6B00] font-semibold">
-                        {item.totalVolumeKg.toLocaleString("pt-BR")} kg vol.
+                      <span aria-hidden="true">·</span>
+                      <span className={isCardio ? "text-[#FF6B00] font-semibold" : ""}>
+                        {item.muscleGroup}
                       </span>
-                    </>
-                  )}
+                    </div>
+                    <h3 className="mt-0.5 text-base font-bold text-[#0F172A] dark:text-white">
+                      {item.title}
+                    </h3>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs font-mono tabular-nums text-[#334155] dark:text-[#D4D4D8]">
+                    <span>{item.durationMin} min</span>
+                    {!isCardio && (
+                      <>
+                        <span aria-hidden="true" className="text-[#CBD5E1] dark:text-[#52525B]">
+                          ·
+                        </span>
+                        <span>{item.setsCompleted} séries</span>
+                      </>
+                    )}
+                    {typeof item.distanceKm === "number" && item.distanceKm > 0 && (
+                      <>
+                        <span aria-hidden="true" className="text-[#CBD5E1] dark:text-[#52525B]">
+                          ·
+                        </span>
+                        <span>{item.distanceKm} km</span>
+                      </>
+                    )}
+                    {typeof item.caloriesKcal === "number" && item.caloriesKcal > 0 && (
+                      <>
+                        <span aria-hidden="true" className="text-[#CBD5E1] dark:text-[#52525B]">
+                          ·
+                        </span>
+                        <span className="text-[#FF6B00] font-semibold inline-flex items-center gap-1">
+                          <Flame className="w-3.5 h-3.5" />
+                          {item.caloriesKcal} kcal
+                        </span>
+                      </>
+                    )}
+                    {item.totalVolumeKg > 0 && (
+                      <>
+                        <span aria-hidden="true" className="text-[#CBD5E1] dark:text-[#52525B]">
+                          ·
+                        </span>
+                        <span className="text-[#FF6B00] font-semibold">
+                          {item.totalVolumeKg.toLocaleString("pt-BR")} kg vol.
+                        </span>
+                      </>
+                    )}
+                    {onDeleteWorkoutSession && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDeleteWorkoutSession(item.id);
+                          onToast("Registro removido do histórico.", "info");
+                        }}
+                        aria-label="Remover sessão do histórico"
+                        className="ml-1 min-h-[32px] min-w-[32px] rounded-lg text-[#64748B] dark:text-[#A1A1AA] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-[#0B0B0D] inline-flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

@@ -33,6 +33,7 @@ import {
   createCloudWorkoutSession,
   deleteCloudMeasurement,
   deleteCloudWorkoutPlan,
+  deleteCloudWorkoutSession,
   deriveUsernameFromEmail,
   ensureCloudUserProfile,
   fetchCloudUserAccess,
@@ -52,6 +53,7 @@ import {
   AchievementProgressItem,
   BiancoAppState,
   BodyMeasurement,
+  CardioSessionInput,
   ChatMessage,
   CompletedWorkout,
   ExerciseLogEntry,
@@ -1576,6 +1578,67 @@ export function useBiancoState(
     []
   );
 
+  const logCardioSession = useCallback((entry: CardioSessionInput) => {
+    const dateStr =
+      entry.date && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(entry.date)
+        ? entry.date
+        : getTodayIso();
+    const durationMin = Math.max(1, Math.min(480, Math.round(entry.durationMin)));
+    const caloriesKcal = Math.max(1, Math.round(entry.caloriesKcal));
+    const distanceKm =
+      typeof entry.distanceKm === "number" &&
+      Number.isFinite(entry.distanceKm) &&
+      entry.distanceKm > 0
+        ? Number(entry.distanceKm.toFixed(2))
+        : undefined;
+
+    const titleParts = [entry.equipment.trim()];
+    if (entry.notes && entry.notes.trim()) {
+      titleParts.push(entry.notes.trim());
+    }
+    if (distanceKm !== undefined) {
+      titleParts.push(`${distanceKm} km`);
+    }
+    titleParts.push(`${caloriesKcal} kcal`);
+
+    const fullTitle = titleParts.join(" · ").slice(0, 120);
+    const categoryLabel = `Cardio · ${entry.intensity}`;
+
+    const record: CompletedWorkout = {
+      id: `cardio_${Date.now()}`,
+      date: dateStr,
+      title: fullTitle,
+      muscleGroup: categoryLabel,
+      totalVolumeKg: 0,
+      setsCompleted: 1,
+      durationMin,
+      distanceKm,
+      caloriesKcal,
+      intensity: entry.intensity,
+    };
+
+    const uid = auth.currentUser?.uid;
+    if (uid && cloudReadyRef.current) {
+      void createCloudWorkoutSession(uid, record).catch(() => {});
+    }
+
+    setState((prev) => ({
+      ...prev,
+      workoutHistory: [record, ...prev.workoutHistory],
+    }));
+  }, []);
+
+  const deleteWorkoutSession = useCallback((id: string) => {
+    const uid = auth.currentUser?.uid;
+    if (uid && cloudReadyRef.current) {
+      void deleteCloudWorkoutSession(uid, id).catch(() => {});
+    }
+    setState((prev) => ({
+      ...prev,
+      workoutHistory: prev.workoutHistory.filter((item) => item.id !== id),
+    }));
+  }, []);
+
   const saveAiPlan = useCallback((content: string, muscleToday: string) => {
     const firstHeadingMatch = content.match(/^#+\s*(.+)$/m);
     const derivedTitle = firstHeadingMatch
@@ -1764,6 +1827,8 @@ export function useBiancoState(
     swapExerciseMachine,
     finishWorkout,
     logModalitySession,
+    logCardioSession,
+    deleteWorkoutSession,
     saveAiPlan,
     clearSavedPlan,
     addMeasurement,

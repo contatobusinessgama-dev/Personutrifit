@@ -152,6 +152,18 @@ export interface SavedAiPlan {
   matchedExerciseIds: string[];
 }
 
+export type CardioIntensity = "Leve" | "Moderado" | "Intenso" | "HIIT";
+
+export interface CardioSessionInput {
+  date?: string; // YYYY-MM-DD
+  equipment: string;
+  durationMin: number;
+  distanceKm?: number;
+  caloriesKcal: number;
+  intensity: CardioIntensity;
+  notes?: string;
+}
+
 export interface CompletedWorkout {
   id: string;
   date: string; // YYYY-MM-DD
@@ -160,6 +172,9 @@ export interface CompletedWorkout {
   totalVolumeKg: number;
   setsCompleted: number;
   durationMin: number;
+  distanceKm?: number;
+  caloriesKcal?: number;
+  intensity?: CardioIntensity;
 }
 
 export interface BodyMeasurement {

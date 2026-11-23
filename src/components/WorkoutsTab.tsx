@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import {
+  Activity,
   AlertTriangle,
   BookmarkCheck,
   Check,
@@ -10,7 +11,12 @@ import {
   ExternalLink,
   Flame,
   Info,
+  Pause,
+  Play,
+  Plus,
+  RotateCcw,
   Settings2,
+  Timer,
   Trash2,
   Wind,
   X,
@@ -24,6 +30,8 @@ import {
 } from "../data/exercises";
 import {
   BiancoAppState,
+  CardioIntensity,
+  CardioSessionInput,
   ExerciseItem,
   ExerciseLogEntry,
   GymModality,
@@ -37,6 +45,86 @@ import { GoalSelector } from "./GoalSelector";
 const CARDIO_BANNER = "/src/assets/images/bianco_cardio_zone_1795053836665.jpg";
 
 type SubTab = "combos" | "grupamentos" | "modalidades";
+
+interface CardioEquipmentOption {
+  id: string;
+  label: string;
+  shortLabel: string;
+  baseMet: number;
+  defaultNotes: string;
+}
+
+const CARDIO_EQUIPMENT_OPTIONS: CardioEquipmentOption[] = [
+  {
+    id: "esteira_caminhada",
+    label: "Esteira (Caminhada Inclinada)",
+    shortLabel: "Esteira Inclinada",
+    baseMet: 6.0,
+    defaultNotes: "Inclinação 10-12% · 5.0 km/h",
+  },
+  {
+    id: "esteira_corrida",
+    label: "Esteira (Corrida)",
+    shortLabel: "Esteira Corrida",
+    baseMet: 9.2,
+    defaultNotes: "Ritmo contínuo 8.5-10 km/h",
+  },
+  {
+    id: "escada",
+    label: "Escada (StairMaster)",
+    shortLabel: "Escada",
+    baseMet: 8.8,
+    defaultNotes: "Nível 7-10 sem apoiar os braços",
+  },
+  {
+    id: "bike",
+    label: "Bicicleta Ergométrica / Spinning",
+    shortLabel: "Bike / Spinning",
+    baseMet: 7.5,
+    defaultNotes: "Cadência 80-95 RPM · Carga moderada",
+  },
+  {
+    id: "eliptico",
+    label: "Elíptico / Transport",
+    shortLabel: "Elíptico",
+    baseMet: 6.5,
+    defaultNotes: "Baixo impacto articular · Carga 6-8",
+  },
+  {
+    id: "remo",
+    label: "Remo Indoor",
+    shortLabel: "Remo Indoor",
+    baseMet: 7.8,
+    defaultNotes: "24-28 remadas/min",
+  },
+  {
+    id: "corda",
+    label: "Pular Corda / Cardio Funcional",
+    shortLabel: "Corda / Funcional",
+    baseMet: 9.8,
+    defaultNotes: "Tiros de 45s ativos / 15s pausa",
+  },
+];
+
+const CARDIO_INTENSITIES: {
+  id: CardioIntensity;
+  label: string;
+  multiplier: number;
+  zone: string;
+}[] = [
+  { id: "Leve", label: "Leve", multiplier: 0.78, zone: "Zona 1-2 (Queima leve)" },
+  { id: "Moderado", label: "Moderado", multiplier: 1.0, zone: "Zona 2-3 (Queima de gordura)" },
+  { id: "Intenso", label: "Intenso", multiplier: 1.22, zone: "Zona 3-4 (Condicionamento)" },
+  { id: "HIIT", label: "HIIT", multiplier: 1.35, zone: "Zona 4-5 (Intervalado)" },
+];
+
+const WEEKLY_CARDIO_GOAL_MIN = 150;
+
+function formatStopwatch(totalSeconds: number): string {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
 
 interface WorkoutsTabProps {
   state: BiancoAppState;
@@ -53,6 +141,8 @@ interface WorkoutsTabProps {
     durationMin: number
   ) => void;
   onLogModality: (title: string, category: string, durationMin: number) => void;
+  onLogCardioSession: (entry: CardioSessionInput) => void;
+  onDeleteWorkoutSession: (id: string) => void;
   onClearSavedPlan: () => void;
   onStartRest: (seconds: number) => void;
   onToast: (message: string, tone?: "success" | "info" | "warning") => void;
@@ -68,6 +158,8 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   onSwapMachine,
   onFinishWorkout,
   onLogModality,
+  onLogCardioSession,
+  onDeleteWorkoutSession,
   onClearSavedPlan,
   onStartRest,
   onToast,
@@ -82,6 +174,211 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   const [finishBanner, setFinishBanner] = useState<string | null>(null);
   const [cardioImgErr, setCardioImgErr] = useState(false);
   const [loggedModalityId, setLoggedModalityId] = useState<string | null>(null);
+
+  // Cardio Exercise Tracker State
+  const [cardioEquipmentId, setCardioEquipmentId] = useState<string>(
+    CARDIO_EQUIPMENT_OPTIONS[0].id
+  );
+  const [cardioIntensity, setCardioIntensity] = useState<CardioIntensity>("Moderado");
+  const [cardioDurationMin, setCardioDurationMin] = useState<string>("30");
+  const [cardioDistanceKm, setCardioDistanceKm] = useState<string>("");
+  const [cardioNotes, setCardioNotes] = useState<string>("");
+  const [cardioCustomKcal, setCardioCustomKcal] = useState<string>("");
+  const [cardioStopwatchSec, setCardioStopwatchSec] = useState<number>(0);
+  const [cardioStopwatchRunning, setCardioStopwatchRunning] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!cardioStopwatchRunning) return;
+    const id = window.setInterval(() => {
+      setCardioStopwatchSec((prev) => prev + 1);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [cardioStopwatchRunning]);
+
+  const selectedCardioEquipment = useMemo(
+    () =>
+      CARDIO_EQUIPMENT_OPTIONS.find((item) => item.id === cardioEquipmentId) ||
+      CARDIO_EQUIPMENT_OPTIONS[0],
+    [cardioEquipmentId]
+  );
+
+  const selectedIntensityMeta = useMemo(
+    () =>
+      CARDIO_INTENSITIES.find((item) => item.id === cardioIntensity) ||
+      CARDIO_INTENSITIES[1],
+    [cardioIntensity]
+  );
+
+  const estimatedCardioKcal = useMemo(() => {
+    const mins = Math.max(1, Number(cardioDurationMin.replace(",", ".")) || 0);
+    const weight = Math.max(40, state.profile.weightKg || 75);
+    const met = selectedCardioEquipment.baseMet * selectedIntensityMeta.multiplier;
+    return Math.round(((met * 3.5 * weight) / 200) * mins);
+  }, [
+    cardioDurationMin,
+    selectedCardioEquipment,
+    selectedIntensityMeta,
+    state.profile.weightKg,
+  ]);
+
+  const liveStopwatchKcal = useMemo(() => {
+    const mins = cardioStopwatchSec / 60;
+    const weight = Math.max(40, state.profile.weightKg || 75);
+    const met = selectedCardioEquipment.baseMet * selectedIntensityMeta.multiplier;
+    return Math.max(0, Math.round(((met * 3.5 * weight) / 200) * mins));
+  }, [
+    cardioStopwatchSec,
+    selectedCardioEquipment,
+    selectedIntensityMeta,
+    state.profile.weightKg,
+  ]);
+
+  const cardioSessions = useMemo(
+    () =>
+      state.workoutHistory.filter(
+        (w) =>
+          w.id.startsWith("cardio_") ||
+          w.muscleGroup.toLowerCase().includes("cardio") ||
+          w.muscleGroup.toLowerCase().includes("spinning")
+      ),
+    [state.workoutHistory]
+  );
+
+  const cardioStats = useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - 6
+    )
+      .toISOString()
+      .slice(0, 10);
+
+    let weeklyMin = 0;
+    let totalMin = 0;
+    let totalKm = 0;
+    let totalKcal = 0;
+
+    for (const s of cardioSessions) {
+      totalMin += s.durationMin || 0;
+      if (s.date >= sevenDaysAgo) {
+        weeklyMin += s.durationMin || 0;
+      }
+      if (typeof s.distanceKm === "number") {
+        totalKm += s.distanceKm;
+      } else {
+        const kmMatch = s.title.match(/([0-9]+(?:[.,][0-9]+)?)\s*km/i);
+        if (kmMatch) totalKm += parseFloat(kmMatch[1].replace(",", "."));
+      }
+      if (typeof s.caloriesKcal === "number") {
+        totalKcal += s.caloriesKcal;
+      } else {
+        const kcalMatch = s.title.match(/([0-9]+)\s*kcal/i);
+        if (kcalMatch) {
+          totalKcal += Number(kcalMatch[1]);
+        } else {
+          totalKcal += Math.round((s.durationMin || 20) * 8);
+        }
+      }
+    }
+
+    const weeklyPct = Math.min(
+      100,
+      Math.round((weeklyMin / WEEKLY_CARDIO_GOAL_MIN) * 100)
+    );
+
+    return {
+      count: cardioSessions.length,
+      weeklyMin,
+      weeklyPct,
+      totalMin,
+      totalKm: Number(totalKm.toFixed(1)),
+      totalKcal,
+    };
+  }, [cardioSessions]);
+
+  const handleSaveCardioForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedDuration = Number(cardioDurationMin.replace(",", "."));
+    if (!Number.isFinite(parsedDuration) || parsedDuration < 1 || parsedDuration > 480) {
+      onToast("Informe uma duração válida entre 1 e 480 minutos.", "warning");
+      return;
+    }
+
+    const rawKm = cardioDistanceKm.trim();
+    let parsedKm: number | undefined;
+    if (rawKm) {
+      const kmVal = Number(rawKm.replace(",", "."));
+      if (!Number.isFinite(kmVal) || kmVal <= 0 || kmVal > 200) {
+        onToast("Informe uma distância válida em km (ex.: 3.5).", "warning");
+        return;
+      }
+      parsedKm = Number(kmVal.toFixed(2));
+    }
+
+    const rawCustomKcal = cardioCustomKcal.trim();
+    const finalKcal =
+      rawCustomKcal && Number.isFinite(Number(rawCustomKcal)) && Number(rawCustomKcal) > 0
+        ? Math.round(Number(rawCustomKcal))
+        : estimatedCardioKcal;
+
+    onLogCardioSession({
+      equipment: selectedCardioEquipment.label,
+      durationMin: Math.round(parsedDuration),
+      distanceKm: parsedKm,
+      caloriesKcal: finalKcal,
+      intensity: cardioIntensity,
+      notes: cardioNotes.trim() || undefined,
+    });
+
+    setFinishBanner(
+      `Cardio registrado: ${selectedCardioEquipment.shortLabel} (${Math.round(
+        parsedDuration
+      )} min · ${finalKcal} kcal)!`
+    );
+    onToast(
+      `Cardio de ${Math.round(parsedDuration)} min (${finalKcal} kcal) salvo no histórico!`,
+      "success"
+    );
+    setCardioDistanceKm("");
+    setCardioCustomKcal("");
+    setCardioNotes("");
+    window.setTimeout(() => setFinishBanner(null), 5000);
+  };
+
+  const handleFinishLiveCardioStopwatch = () => {
+    const elapsedMin = Math.max(1, Math.round(cardioStopwatchSec / 60));
+    const weight = Math.max(40, state.profile.weightKg || 75);
+    const met = selectedCardioEquipment.baseMet * selectedIntensityMeta.multiplier;
+    const kcal = Math.max(5, Math.round(((met * 3.5 * weight) / 200) * elapsedMin));
+
+    const rawKm = cardioDistanceKm.trim();
+    const parsedKm =
+      rawKm && Number.isFinite(Number(rawKm.replace(",", "."))) && Number(rawKm.replace(",", ".")) > 0
+        ? Number(Number(rawKm.replace(",", ".")).toFixed(2))
+        : undefined;
+
+    onLogCardioSession({
+      equipment: selectedCardioEquipment.label,
+      durationMin: elapsedMin,
+      distanceKm: parsedKm,
+      caloriesKcal: kcal,
+      intensity: cardioIntensity,
+      notes: cardioNotes.trim() || "Cronometrado ao vivo",
+    });
+
+    setCardioStopwatchRunning(false);
+    setCardioStopwatchSec(0);
+    setCardioDurationMin(String(elapsedMin));
+    setFinishBanner(
+      `Cardio cronometrado salvo: ${selectedCardioEquipment.shortLabel} (${elapsedMin} min · ${kcal} kcal)!`
+    );
+    onToast(
+      `Cardio cronometrado (${elapsedMin} min · ${kcal} kcal) registrado!`,
+      "success"
+    );
+    window.setTimeout(() => setFinishBanner(null), 5000);
+  };
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -295,7 +592,7 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
           [
             { id: "combos", label: "Combinações Prontas" },
             { id: "grupamentos", label: "Por Grupamento" },
-            { id: "modalidades", label: "Modalidades" },
+            { id: "modalidades", label: "Cardio & Modalidades" },
           ] as { id: SubTab; label: string }[]
         ).map((tab) => {
           const active = subTab === tab.id;
@@ -376,14 +673,25 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleCompleteActiveCombo}
-              className="min-h-[48px] px-5 py-3 rounded-xl bg-[#FF6B00] hover:bg-[#F97316] active:scale-[0.98] text-sm font-bold text-white flex items-center justify-center gap-2 transition-all whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Finalizar Treino</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSubTab("modalidades")}
+                className="min-h-[48px] px-4 py-3 rounded-xl bg-[#F8FAFC] dark:bg-[#1C1C21] hover:bg-[#FF6B00]/10 border border-[#E2E8F0] dark:border-[#26262B] hover:border-[#FF6B00] text-xs sm:text-sm font-bold text-[#0F172A] dark:text-white flex items-center justify-center gap-2 transition-all whitespace-nowrap cursor-pointer"
+              >
+                <Flame className="w-4 h-4 text-[#FF6B00]" />
+                <span>Controle de Cardio</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCompleteActiveCombo}
+                className="min-h-[48px] px-5 py-3 rounded-xl bg-[#FF6B00] hover:bg-[#F97316] active:scale-[0.98] text-sm font-bold text-white flex items-center justify-center gap-2 transition-all whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Finalizar Treino</span>
+              </button>
+            </div>
           </div>
 
           {/* Active Combo Exercises */}
@@ -465,12 +773,374 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
                 Modalidades de Academia
               </h2>
               <p className="mt-1 text-xs sm:text-sm text-[#D4D4D8] max-w-xl">
-                Cardio estratégico pós-musculação, circuitos funcionais, spinning indoor e mobilidade articular.
+                Controle completo de exercícios de cardio com cronômetro ao vivo, cálculo de calorias pelo seu peso atual ({state.profile.weightKg} kg) e protocolos de academia.
               </p>
             </div>
           </div>
 
-          {/* Filter buttons */}
+          {/* PAINEL COMPLETO: CONTROLE DE EXERCÍCIOS DE CARDIO */}
+          <section
+            aria-label="Controle de exercícios de cardio"
+            className="rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] shadow-sm dark:shadow-none p-5 sm:p-6 space-y-6"
+          >
+            {/* Header + Weekly Cardio Goal Progress */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-[#E2E8F0] dark:border-[#26262B]">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#FF6B00]">
+                  <Activity className="w-4 h-4" />
+                  <span>Controle de Exercícios de Cardio</span>
+                </div>
+                <h3 className="mt-1 text-lg sm:text-xl font-extrabold text-[#0F172A] dark:text-white">
+                  Registrar & Cronometrar Cardio
+                </h3>
+                <p className="mt-0.5 text-xs text-[#475569] dark:text-[#A1A1AA]">
+                  Gasto calórico calculado automaticamente para o seu peso atual de{" "}
+                  <strong className="font-mono text-[#0F172A] dark:text-white">
+                    {state.profile.weightKg} kg
+                  </strong>
+                  .
+                </p>
+              </div>
+
+              {/* Weekly Goal Progress Card */}
+              <div className="w-full lg:w-80 rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] p-3.5 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-[#334155] dark:text-[#D4D4D8]">
+                    Meta semanal de cardio
+                  </span>
+                  <span className="font-mono font-bold tabular-nums text-[#FF6B00]">
+                    {cardioStats.weeklyMin} / {WEEKLY_CARDIO_GOAL_MIN} min (
+                    {cardioStats.weeklyPct}%)
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-[#E2E8F0] dark:bg-[#26262B] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#FF6B00] transition-[width] duration-300"
+                    style={{ width: `${cardioStats.weeklyPct}%` }}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-1 text-[11px] text-[#475569] dark:text-[#A1A1AA] font-mono tabular-nums">
+                  <span>{cardioStats.count} sessões</span>
+                  <span className="text-center">{cardioStats.totalKm} km</span>
+                  <span className="text-right text-[#FF6B00] font-semibold">
+                    {cardioStats.totalKcal} kcal
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Grid: Live Cardio Stopwatch + Manual Cardio Logger Form */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              {/* Left Column: Live Cardio Stopwatch */}
+              <div className="lg:col-span-5 rounded-2xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] p-4 sm:p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Timer className="w-4 h-4 text-[#FF6B00]" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#0F172A] dark:text-white">
+                      Cronômetro de Cardio ao Vivo
+                    </span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                      cardioStopwatchRunning
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        : "bg-[#E2E8F0] dark:bg-[#1C1C21] text-[#475569] dark:text-[#A1A1AA]"
+                    }`}
+                  >
+                    {cardioStopwatchRunning ? "Em andamento" : "Pronto"}
+                  </span>
+                </div>
+
+                <div className="text-center py-3 rounded-xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B]">
+                  <p className="font-mono text-4xl sm:text-5xl font-extrabold tabular-nums text-[#0F172A] dark:text-white tracking-tight">
+                    {formatStopwatch(cardioStopwatchSec)}
+                  </p>
+                  <p className="mt-1.5 text-xs text-[#475569] dark:text-[#A1A1AA]">
+                    {selectedCardioEquipment.shortLabel} · {cardioIntensity} ·{" "}
+                    <span className="font-mono font-bold text-[#FF6B00] tabular-nums">
+                      ~{liveStopwatchKcal} kcal
+                    </span>
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setCardioStopwatchRunning((prev) => !prev)}
+                    className={`min-h-[44px] px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      cardioStopwatchRunning
+                        ? "bg-amber-500 hover:bg-amber-600 text-white"
+                        : "bg-[#FF6B00] hover:bg-[#F97316] text-white"
+                    }`}
+                  >
+                    {cardioStopwatchRunning ? (
+                      <>
+                        <Pause className="w-4 h-4" />
+                        <span>Pausar</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4" />
+                        <span>{cardioStopwatchSec > 0 ? "Retomar" : "Iniciar Cardio"}</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={cardioStopwatchSec === 0}
+                    onClick={() => {
+                      setCardioStopwatchRunning(false);
+                      setCardioStopwatchSec(0);
+                    }}
+                    className="min-h-[44px] px-3 rounded-xl bg-white dark:bg-[#151518] hover:bg-[#F1F5F9] dark:hover:bg-[#1C1C21] border border-[#E2E8F0] dark:border-[#26262B] text-xs font-semibold text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Zerar</span>
+                  </button>
+                </div>
+
+                {cardioStopwatchSec > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleFinishLiveCardioStopwatch}
+                    className="w-full min-h-[44px] px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>
+                      Concluir e Salvar ({Math.max(1, Math.round(cardioStopwatchSec / 60))}{" "}
+                      min)
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              {/* Right Column: Cardio Session Form */}
+              <form
+                onSubmit={handleSaveCardioForm}
+                className="lg:col-span-7 space-y-4"
+              >
+                {/* 1. Aparelho / Exercício de Cardio */}
+                <div>
+                  <label
+                    htmlFor="cardio-equipment"
+                    className="block text-xs font-semibold text-[#334155] dark:text-[#D4D4D8] mb-1.5"
+                  >
+                    Aparelho / Exercício de Cardio
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {CARDIO_EQUIPMENT_OPTIONS.map((item) => {
+                      const active = item.id === cardioEquipmentId;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setCardioEquipmentId(item.id)}
+                          className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-semibold border text-left transition-colors cursor-pointer ${
+                            active
+                              ? "bg-[#FF6B00] border-[#FF6B00] text-white"
+                              : "bg-[#F8FAFC] dark:bg-[#0B0B0D] border-[#E2E8F0] dark:border-[#26262B] text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white"
+                          }`}
+                        >
+                          {item.shortLabel}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Intensidade */}
+                <div>
+                  <span className="block text-xs font-semibold text-[#334155] dark:text-[#D4D4D8] mb-1.5">
+                    Intensidade ·{" "}
+                    <span className="font-normal text-[#64748B] dark:text-[#A1A1AA]">
+                      {selectedIntensityMeta.zone}
+                    </span>
+                  </span>
+                  <div className="grid grid-cols-4 gap-2">
+                    {CARDIO_INTENSITIES.map((intItem) => {
+                      const active = intItem.id === cardioIntensity;
+                      return (
+                        <button
+                          key={intItem.id}
+                          type="button"
+                          onClick={() => setCardioIntensity(intItem.id)}
+                          className={`min-h-[40px] px-2.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                            active
+                              ? "bg-[#FF6B00] border-[#FF6B00] text-white"
+                              : "bg-[#F8FAFC] dark:bg-[#0B0B0D] border-[#E2E8F0] dark:border-[#26262B] text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white"
+                          }`}
+                        >
+                          {intItem.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Duração (min), Distância (km) e Calorias (kcal) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label
+                      htmlFor="cardio-duration"
+                      className="block text-xs text-[#475569] dark:text-[#A1A1AA] mb-1"
+                    >
+                      Duração (min) *
+                    </label>
+                    <input
+                      id="cardio-duration"
+                      type="number"
+                      min={1}
+                      max={480}
+                      required
+                      value={cardioDurationMin}
+                      onChange={(e) => setCardioDurationMin(e.target.value)}
+                      className="w-full min-h-[42px] rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] focus:border-[#FF6B00] focus:outline-none px-3 font-mono text-sm font-bold tabular-nums text-[#0F172A] dark:text-white"
+                    />
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {[15, 20, 30, 45, 60].map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setCardioDurationMin(String(m))}
+                          className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-semibold border cursor-pointer transition-colors ${
+                            Number(cardioDurationMin) === m
+                              ? "bg-[#FF6B00]/15 border-[#FF6B00] text-[#FF6B00]"
+                              : "bg-[#F8FAFC] dark:bg-[#0B0B0D] border-[#E2E8F0] dark:border-[#26262B] text-[#64748B] dark:text-[#A1A1AA]"
+                          }`}
+                        >
+                          {m}m
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="cardio-distance"
+                      className="block text-xs text-[#475569] dark:text-[#A1A1AA] mb-1"
+                    >
+                      Distância (km — opcional)
+                    </label>
+                    <input
+                      id="cardio-distance"
+                      type="number"
+                      step="0.1"
+                      min={0}
+                      max={200}
+                      value={cardioDistanceKm}
+                      onChange={(e) => setCardioDistanceKm(e.target.value)}
+                      placeholder="Ex.: 3.2"
+                      className="w-full min-h-[42px] rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] focus:border-[#FF6B00] focus:outline-none px-3 font-mono text-sm tabular-nums text-[#0F172A] dark:text-white placeholder:text-[#94A3B8] dark:placeholder:text-[#52525B]"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="cardio-kcal"
+                      className="block text-xs text-[#475569] dark:text-[#A1A1AA] mb-1"
+                    >
+                      Gasto Estimado (kcal)
+                    </label>
+                    <input
+                      id="cardio-kcal"
+                      type="number"
+                      min={1}
+                      max={5000}
+                      value={cardioCustomKcal}
+                      onChange={(e) => setCardioCustomKcal(e.target.value)}
+                      placeholder={`${estimatedCardioKcal} kcal (auto)`}
+                      className="w-full min-h-[42px] rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] focus:border-[#FF6B00] focus:outline-none px-3 font-mono text-sm font-semibold tabular-nums text-[#FF6B00] placeholder:text-[#FF6B00]/80"
+                    />
+                  </div>
+                </div>
+
+                {/* 4. Regulagem / Velocidade / Inclinação + Botão Salvar */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
+                  <div className="flex-1">
+                    <label
+                      htmlFor="cardio-notes"
+                      className="block text-xs text-[#475569] dark:text-[#A1A1AA] mb-1"
+                    >
+                      Velocidade / Inclinação / Observação (opcional)
+                    </label>
+                    <input
+                      id="cardio-notes"
+                      type="text"
+                      maxLength={50}
+                      value={cardioNotes}
+                      onChange={(e) => setCardioNotes(e.target.value)}
+                      placeholder={selectedCardioEquipment.defaultNotes}
+                      className="w-full min-h-[44px] rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] focus:border-[#FF6B00] focus:outline-none px-3.5 text-xs text-[#0F172A] dark:text-white placeholder:text-[#94A3B8] dark:placeholder:text-[#52525B]"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="min-h-[44px] px-5 rounded-xl bg-[#FF6B00] hover:bg-[#F97316] active:scale-[0.98] text-xs sm:text-sm font-bold text-white flex items-center justify-center gap-2 transition-all whitespace-nowrap cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>
+                      Registrar Cardio (
+                      {cardioCustomKcal.trim() || estimatedCardioKcal} kcal)
+                    </span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Histórico Recente de Cardio */}
+            {cardioSessions.length > 0 && (
+              <div className="pt-4 border-t border-[#E2E8F0] dark:border-[#26262B] space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#475569] dark:text-[#A1A1AA]">
+                    Últimas Sessões de Cardio Registradas ({cardioSessions.length})
+                  </h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {cardioSessions.slice(0, 6).map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] px-3.5 py-2.5 flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 text-[11px] text-[#475569] dark:text-[#A1A1AA]">
+                          <span className="font-mono tabular-nums">
+                            {item.date.split("-").reverse().join("/")}
+                          </span>
+                          <span>·</span>
+                          <span className="text-[#FF6B00] font-semibold">
+                            {item.muscleGroup}
+                          </span>
+                          <span>·</span>
+                          <span className="font-mono font-semibold text-[#0F172A] dark:text-white tabular-nums">
+                            {item.durationMin} min
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-xs font-bold text-[#0F172A] dark:text-white truncate">
+                          {item.title}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDeleteWorkoutSession(item.id);
+                          onToast("Sessão de cardio removida.", "info");
+                        }}
+                        aria-label="Excluir sessão de cardio"
+                        className="min-h-[32px] min-w-[32px] rounded-lg text-[#64748B] dark:text-[#A1A1AA] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-[#151518] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Filter buttons for Pre-set Gym Modalities */}
           <div className="flex flex-wrap gap-2">
             {(["Todas", "Cardio", "Funcional", "Spinning", "Pilates/Mobilidade"] as const).map(
               (cat) => {
