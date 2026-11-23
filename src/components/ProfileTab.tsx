@@ -172,7 +172,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   // Reset confirmation modal
   const [showResetModal, setShowResetModal] = useState(false);
 
-  // Sync form drafts if cloud hydration updates profile
+  // Sync form drafts if cloud hydration updates profile or latestMeasurement
   useEffect(() => {
     setName(profile.name);
     setSex(profile.sex);
@@ -185,6 +185,16 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     setAvailableTime(profile.availableTime);
     setEvalWeightKg(String(profile.weightKg));
   }, [profile]);
+
+  useEffect(() => {
+    if (!latestMeasurement) return;
+    const next = {} as Record<MeasurementKey, string>;
+    for (const f of MEASUREMENT_FIELDS) {
+      const val = readMeasureValue(latestMeasurement, f);
+      next[f.key] = val !== undefined ? String(val) : "";
+    }
+    setMeasures(next);
+  }, [latestMeasurement]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

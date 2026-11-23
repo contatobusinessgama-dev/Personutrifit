@@ -63,10 +63,12 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
   const { isDark } = useTheme();
   const [date, setDate] = useState(getTodayIso());
   const [weightKg, setWeightKg] = useState(String(state.profile.weightKg));
+  const [chestCm, setChestCm] = useState("");
   const [waistCm, setWaistCm] = useState("");
   const [abdomenCm, setAbdomenCm] = useState("");
   const [armCm, setArmCm] = useState("");
   const [thighCm, setThighCm] = useState("");
+  const [calfCm, setCalfCm] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const chartColors = useMemo(
@@ -151,27 +153,33 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
     };
 
     try {
+      const parsedChest = parseOptional(chestCm, "Peito", 50, 220);
       const parsedWaist = parseOptional(waistCm, "Cintura", 30, 250);
       const parsedAbdomen = parseOptional(abdomenCm, "Abdômen", 30, 250);
       const parsedArm = parseOptional(armCm, "Braço", 10, 100);
       const parsedThigh = parseOptional(thighCm, "Coxa", 20, 150);
+      const parsedCalf = parseOptional(calfCm, "Panturrilha", 15, 90);
 
       setFormError(null);
       onAddMeasurement({
         date,
         weightKg: Number(parsedWeight.toFixed(1)),
+        chestCm: parsedChest,
         waistCm: parsedWaist,
         abdomenCm: parsedAbdomen,
         armRightCm: parsedArm,
         armCm: parsedArm,
         thighRightCm: parsedThigh,
         thighCm: parsedThigh,
+        calfCm: parsedCalf,
       });
 
+      setChestCm("");
       setWaistCm("");
       setAbdomenCm("");
       setArmCm("");
       setThighCm("");
+      setCalfCm("");
       onToast("Medição salva na sua linha de evolução!", "success");
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Revise os valores informados.");
@@ -373,10 +381,10 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
         >
           <h2 className="text-lg font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
             <Scale className="w-4 h-4 text-[#FF6B00]" />
-            <span>Registro Rápido de Peso</span>
+            <span>Registro Rápido de Peso e Medidas</span>
           </h2>
           <p className="text-xs text-[#475569] dark:text-[#A1A1AA] mt-0.5">
-            Atualize semanalmente ou use a aba Perfil para registrar todas as 10 circunferências.
+            Atualize seu peso e medidas principais (peito, cintura, abdômen, braço, coxa e panturrilha).
           </p>
 
           <form onSubmit={handleSubmit} className="mt-4 space-y-3.5">
@@ -421,6 +429,25 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label
+                  htmlFor="ev-chest"
+                  className="block text-xs text-[#475569] dark:text-[#A1A1AA] mb-1"
+                >
+                  Peito (cm)
+                </label>
+                <input
+                  id="ev-chest"
+                  type="number"
+                  step="0.5"
+                  min={0}
+                  value={chestCm}
+                  onChange={(e) => setChestCm(e.target.value)}
+                  placeholder="Ex.: 98"
+                  className="w-full min-h-[44px] rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] focus:border-[#FF6B00] focus:outline-none px-3 font-mono text-sm tabular-nums text-[#0F172A] dark:text-white placeholder:text-[#94A3B8] dark:placeholder:text-[#52525B]"
+                />
+              </div>
+
               <div>
                 <label
                   htmlFor="ev-waist"
@@ -493,6 +520,25 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
                   value={thighCm}
                   onChange={(e) => setThighCm(e.target.value)}
                   placeholder="Ex.: 57"
+                  className="w-full min-h-[44px] rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] focus:border-[#FF6B00] focus:outline-none px-3 font-mono text-sm tabular-nums text-[#0F172A] dark:text-white placeholder:text-[#94A3B8] dark:placeholder:text-[#52525B]"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="ev-calf"
+                  className="block text-xs text-[#475569] dark:text-[#A1A1AA] mb-1"
+                >
+                  Panturrilha (cm)
+                </label>
+                <input
+                  id="ev-calf"
+                  type="number"
+                  step="0.5"
+                  min={0}
+                  value={calfCm}
+                  onChange={(e) => setCalfCm(e.target.value)}
+                  placeholder="Ex.: 38"
                   className="w-full min-h-[44px] rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] focus:border-[#FF6B00] focus:outline-none px-3 font-mono text-sm tabular-nums text-[#0F172A] dark:text-white placeholder:text-[#94A3B8] dark:placeholder:text-[#52525B]"
                 />
               </div>

@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 const GEMINI_MODELS = [
   "gemini-4-hydrogen",
@@ -408,11 +408,18 @@ export default async function handler(
     const modelStartedAt = Date.now();
     let emitted = false;
     try {
+      const isGemini3Or4 =
+        candidate.startsWith("gemini-4-") || candidate.startsWith("gemini-3");
       const stream = await withTimeout(
         ai.models.generateContentStream({
           model: candidate,
           contents,
-          config: { systemInstruction },
+          config: isGemini3Or4
+            ? {
+                systemInstruction,
+                thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+              }
+            : { systemInstruction },
         }),
         FIRST_CHUNK_TIMEOUT_MS,
         candidate

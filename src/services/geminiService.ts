@@ -376,6 +376,15 @@ export function getAiToastNotification(err: unknown): AiToastNotification {
       message: err instanceof Error ? err.message : String(err || ""),
     });
 
+  if (category === "auth" && friendly?.message) {
+    return {
+      message: friendly.message,
+      category,
+      isUnavailable: true,
+      actionLabel: "Tentar novamente",
+    };
+  }
+
   if (category === "auth" || category === "no_response" || category === "unknown") {
     return {
       message: AI_TEMPORARILY_UNAVAILABLE_TOAST,

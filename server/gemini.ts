@@ -2,6 +2,7 @@ import {
   GenerateContentParameters,
   GenerateContentResponse,
   GoogleGenAI,
+  ThinkingLevel,
 } from "@google/genai";
 
 /**
@@ -33,6 +34,22 @@ function buildRotationList(preferredModel?: string): readonly GeminiModelName[] 
     ...GEMINI_MODELS.slice(idx),
     ...GEMINI_MODELS.slice(0, idx),
   ];
+}
+
+function buildConfigForModel(
+  model: string,
+  baseConfig?: GenerateContentParameters["config"]
+): GenerateContentParameters["config"] {
+  if (model.startsWith("gemini-4-") || model.startsWith("gemini-3")) {
+    return {
+      ...baseConfig,
+      thinkingConfig: {
+        thinkingLevel: ThinkingLevel.LOW,
+        ...baseConfig?.thinkingConfig,
+      },
+    };
+  }
+  return baseConfig;
 }
 
 function resolveServerGeminiApiKey(): string {
@@ -210,6 +227,7 @@ export async function generateWithFallback(
         ai.models.generateContent({
           ...sdkParams,
           model,
+          config: buildConfigForModel(model, sdkParams.config),
         }),
         FIRST_CHUNK_TIMEOUT_MS,
         model
@@ -263,6 +281,7 @@ export async function generateStreamWithFallback(
         ai.models.generateContentStream({
           ...sdkParams,
           model,
+          config: buildConfigForModel(model, sdkParams.config),
         }),
         FIRST_CHUNK_TIMEOUT_MS,
         model
