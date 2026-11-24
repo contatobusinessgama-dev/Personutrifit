@@ -11,7 +11,9 @@ import {
   Droplets,
   Dumbbell,
   Flame,
+  Lightbulb,
   Play,
+  RefreshCw,
   RotateCcw,
   Scale,
   ShieldAlert,
@@ -47,6 +49,125 @@ import { GoalSelector } from "./GoalSelector";
 import { StudentAvatar } from "./StudentAvatar";
 
 const HERO_IMAGE = "/src/assets/images/bianco_gym_hero_1795053835269.jpg";
+
+interface DailyTipItem {
+  id: string;
+  category: "Musculação" | "Nutrição";
+  title: string;
+  tip: string;
+  actionTag: string;
+}
+
+const DAILY_TIPS_CATALOG: DailyTipItem[] = [
+  {
+    id: "tip_cadence",
+    category: "Musculação",
+    title: "Controle a Fase Excêntrica",
+    tip: "Descer a carga em 2 a 3 segundos controlados gera mais microlesões produtivas e protege suas articulações do que apenas jogar peso para cima.",
+    actionTag: "Foco na execução perfeita hoje",
+  },
+  {
+    id: "tip_protein_meals",
+    category: "Nutrição",
+    title: "Proteína Distribuída no Dia",
+    tip: "Fracionar sua meta de proteínas em 3 a 5 refeições mantém a síntese proteica muscular ativa por 24 horas e reduz picos de fome noturna.",
+    actionTag: "Inclua proteína em cada refeição",
+  },
+  {
+    id: "tip_progressive_overload",
+    category: "Musculação",
+    title: "Sobrecarga Progressiva Inteligente",
+    tip: "Progredir não é só aumentar peso: fazer +1 repetição limpa, melhorar a amplitude ou reduzir 10s de descanso já força seu músculo a evoluir.",
+    actionTag: "Supere 1 repetição do último treino",
+  },
+  {
+    id: "tip_hydration_strength",
+    category: "Nutrição",
+    title: "Hidratação é Força Bruta",
+    tip: "Apenas 2% de desidratação corporal pode reduzir sua força máxima em até 10% e aumentar a percepção de fadiga. Beba água antes de sentir sede.",
+    actionTag: "Beba 500 ml antes de treinar",
+  },
+  {
+    id: "tip_sleep_hypertrophy",
+    category: "Musculação",
+    title: "O Músculo Cresce no Descanso",
+    tip: "O treino dá o estímulo, mas é durante o sono profundo que ocorre o pico de GH e a reparação das fibras musculares. Priorize 7h a 8h por noite.",
+    actionTag: "Respeite a recuperação muscular",
+  },
+  {
+    id: "tip_preworkout_carbs",
+    category: "Nutrição",
+    title: "Carboidrato é Combustível Limpo",
+    tip: "Consumir carboidratos de boa digestão (banana, aveia, arroz ou pão integral) 60 a 90 min antes do treino preserva o glicogênio e evita queda de rendimento.",
+    actionTag: "Garanta energia para o treino",
+  },
+  {
+    id: "tip_core_bracing",
+    category: "Musculação",
+    title: "Ative o Core e Proteja a Lombar",
+    tip: "Antes de iniciar agachamentos, remadas ou desenvolvimentos, contraia o abdômen como se fosse receber um impacto (bracing) e mantenha a coluna neutra.",
+    actionTag: "Postura firme em cada série",
+  },
+  {
+    id: "tip_fiber_satiety",
+    category: "Nutrição",
+    title: "Saciedade no Emagrecimento",
+    tip: "Começar o almoço e o jantar por folhas verdes, legumes e uma fonte magra de proteína reduz a velocidade de absorção glicêmica e controla o apetite.",
+    actionTag: "Prato colorido e rico em fibras",
+  },
+  {
+    id: "tip_mind_muscle",
+    category: "Musculação",
+    title: "Conexão Mente-Músculo",
+    tip: "Concentre sua atenção no músculo alvo contraindo e alongando a cada repetição. Sentir a musculatura trabalhar vale mais que mover carga no automático.",
+    actionTag: "Sinta cada contração muscular",
+  },
+  {
+    id: "tip_post_workout_window",
+    category: "Nutrição",
+    title: "Recuperação Pós-Treino",
+    tip: "Combinar proteínas de qualidade com carboidratos após o treino acelera a reposição de glicogênio e reduz o cortisol induzido pelo esforço intenso.",
+    actionTag: "Nutra seu corpo após o treino",
+  },
+  {
+    id: "tip_joint_warmup",
+    category: "Musculação",
+    title: "Aquecimento Articular Não é Perda de Tempo",
+    tip: "Dedicar 5 minutos para mobilidade e 1 série leve de reconhecimento lubrifica joelhos, ombros e quadril com líquido sinovial, prevenindo lesões.",
+    actionTag: "Prepare suas articulações",
+  },
+  {
+    id: "tip_consistency_8020",
+    category: "Nutrição",
+    title: "Constância Vence a Perfeição",
+    tip: "Uma refeição fora do plano não estraga seus resultados, assim como uma única salada não constrói um físico. Volte ao plano na próxima refeição sem culpa.",
+    actionTag: "Mantenha a consistência hoje",
+  },
+  {
+    id: "tip_breathing_effort",
+    category: "Musculação",
+    title: "Respire a Favor da Força",
+    tip: "Inspire na fase excêntrica (descida) e solte o ar vigorosamente no ponto de maior esforço (subida).Nunca prenda a respiração por séries inteiras.",
+    actionTag: "Ritmo respiratório controlado",
+  },
+  {
+    id: "tip_micronutrients",
+    category: "Nutrição",
+    title: "Micronutrientes & Metabolismo",
+    tip: "Vitaminas do complexo B, magnésio, ferro e zinco presentes em ovos, carnes magras, sementes e vegetais escuros são essenciais para converter comida em ATP.",
+    actionTag: "Varie os alimentos naturais",
+  },
+];
+
+function getDailyTipIndexForDate(date: Date): number {
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
+  const d = date.getDate();
+  // Deterministic daily seed that advances by 1 every calendar day
+  const utcMidnight = Date.UTC(y, m - 1, d);
+  const daysSinceEpoch = Math.floor(utcMidnight / 86400000);
+  return Math.abs(daysSinceEpoch) % DAILY_TIPS_CATALOG.length;
+}
 
 const WATER_REMINDER_INTERVALS: { value: WaterReminderIntervalMin; label: string }[] = [
   { value: 30, label: "30 min" },
@@ -105,7 +226,26 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const [heroImgError, setHeroImgError] = useState(false);
   const [showReminderSettings, setShowReminderSettings] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
+  const [tipOffset, setTipOffset] = useState(0);
   const weightLossStats = useMemo(() => computeWeightLossStats(state), [state]);
+
+  const dailyTipInfo = useMemo(() => {
+    const todayDate = new Date(nowTick);
+    const baseIdx = getDailyTipIndexForDate(todayDate);
+    const activeIdx = (baseIdx + tipOffset) % DAILY_TIPS_CATALOG.length;
+    const item = DAILY_TIPS_CATALOG[activeIdx];
+    const dateLabel = new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+    }).format(todayDate);
+    return {
+      item,
+      activeIdx,
+      total: DAILY_TIPS_CATALOG.length,
+      dateLabel,
+      isAutoToday: tipOffset === 0,
+    };
+  }, [nowTick, tipOffset]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -329,6 +469,90 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </motion.button>
         </div>
       </motion.header>
+
+      {/* ROW 1A-TIP: "Dica do Dia" (Daily Motivational Bodybuilding & Nutrition Tip, auto-renewed daily) */}
+      <motion.section
+        variants={dashboardSectionVariants}
+        aria-label="Dica do Dia"
+        className="relative rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-[#FFF7ED] via-white to-[#F8FAFC] dark:from-[#1B1410] dark:via-[#151518] dark:to-[#121215] border border-[#FDBA74]/60 dark:border-[#FF6B00]/30 shadow-sm dark:shadow-none overflow-hidden"
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#FF6B00]/70 to-transparent"
+        />
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+          <div className="flex items-start gap-3.5 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[#FF6B00]/15 dark:bg-[#FF6B00]/20 border border-[#FF6B00]/30 flex items-center justify-center shrink-0 mt-0.5">
+              <Lightbulb className="w-5 h-5 text-[#FF6B00]" />
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#FF6B00]">
+                  Dica do Dia · {dailyTipInfo.dateLabel}
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                    dailyTipInfo.item.category === "Musculação"
+                      ? "bg-[#FF6B00]/12 text-[#EA580C] dark:bg-[#FF6B00]/20 dark:text-[#FB923C]"
+                      : "bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+                  }`}
+                >
+                  {dailyTipInfo.item.category === "Musculação" ? (
+                    <Dumbbell className="w-3 h-3" />
+                  ) : (
+                    <Utensils className="w-3 h-3" />
+                  )}
+                  {dailyTipInfo.item.category}
+                </span>
+                <span className="text-[11px] text-[#64748B] dark:text-[#A1A1AA] font-mono tabular-nums">
+                  #{dailyTipInfo.activeIdx + 1}/{dailyTipInfo.total}
+                </span>
+                {dailyTipInfo.isAutoToday && (
+                  <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                    Renovada hoje
+                  </span>
+                )}
+              </div>
+
+              <h2 className="mt-1 text-sm sm:text-base font-extrabold text-[#0F172A] dark:text-white">
+                {dailyTipInfo.item.title}
+              </h2>
+
+              <p className="mt-0.5 text-xs sm:text-sm text-[#334155] dark:text-[#D4D4D8] leading-relaxed">
+                {dailyTipInfo.item.tip}
+              </p>
+
+              <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#EA580C] dark:text-[#FB923C]">
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Meta prática: {dailyTipInfo.item.actionTag}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+            {!dailyTipInfo.isAutoToday && (
+              <button
+                type="button"
+                onClick={() => setTipOffset(0)}
+                className="min-h-[36px] px-2.5 py-1.5 rounded-xl bg-white/80 dark:bg-[#1C1C21] border border-[#E2E8F0] dark:border-[#2A2A32] hover:border-[#FF6B00] text-[11px] font-semibold text-[#475569] dark:text-[#D4D4D8] transition-colors cursor-pointer"
+              >
+                Voltar à do dia
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setTipOffset((prev) => prev + 1)}
+              title="Ver outra dica motivacional"
+              className="min-h-[36px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#1C1C21] border border-[#E2E8F0] dark:border-[#2A2A32] hover:border-[#FF6B00] text-xs font-bold text-[#0F172A] dark:text-white flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-[#FF6B00]" />
+              <span>Outra dica</span>
+            </button>
+          </div>
+        </div>
+      </motion.section>
 
       {/* ROW 1B: Primary Focal Anchor — Card Hero "Treino de Hoje" (dark photo scrim for contrast in both themes) */}
       <motion.section
