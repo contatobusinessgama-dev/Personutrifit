@@ -51,6 +51,7 @@ const AnatomicalFallbackSvg: React.FC<{
   const isShoulders = muscleGroup === "ombros";
   const isArms = muscleGroup === "biceps_triceps";
   const isCoreCalves = muscleGroup === "abdomen_panturrilha";
+  const isJointCare = muscleGroup === "lombar_joelho";
   const isCardio = muscleGroup === "cardio";
 
   const hi = "#FF6B00";
@@ -122,15 +123,15 @@ const AnatomicalFallbackSvg: React.FC<{
           opacity={isChest || isUpperBack ? 0.95 : 0.7}
         />
 
-        {/* Core / Abs */}
+        {/* Core / Abs / Lower Back */}
         <rect
           x="51"
           y="51"
           width="18"
           height="19"
           rx="4"
-          fill={isCoreCalves || isCardio ? hi : "#23232B"}
-          stroke={isCoreCalves ? "#FDBA74" : "none"}
+          fill={isCoreCalves || isJointCare || isCardio ? hi : "#23232B"}
+          stroke={isCoreCalves || isJointCare ? "#FDBA74" : "none"}
           strokeWidth="1"
         />
 
@@ -151,22 +152,22 @@ const AnatomicalFallbackSvg: React.FC<{
         {/* Glutes / Pelvis */}
         <path
           d="M45 69 L75 69 L78 82 L42 82 Z"
-          fill={isPosterior || isCardio ? hi : baseBody}
-          stroke={isPosterior ? "#FDBA74" : strokeBody}
+          fill={isPosterior || isJointCare || isCardio ? hi : baseBody}
+          stroke={isPosterior || isJointCare ? "#FDBA74" : strokeBody}
           strokeWidth="1.4"
         />
 
         {/* Thighs (Quads & Posterior) */}
         <path
           d="M43 82 L58 82 L55 110 L44 110 Z"
-          fill={isQuads || isPosterior || isCardio ? hi : baseBody}
-          stroke={isQuads || isPosterior ? "#FDBA74" : strokeBody}
+          fill={isQuads || isPosterior || isJointCare || isCardio ? hi : baseBody}
+          stroke={isQuads || isPosterior || isJointCare ? "#FDBA74" : strokeBody}
           strokeWidth="1.4"
         />
         <path
           d="M62 82 L77 82 L76 110 L65 110 Z"
-          fill={isQuads || isPosterior || isCardio ? hi : baseBody}
-          stroke={isQuads || isPosterior ? "#FDBA74" : strokeBody}
+          fill={isQuads || isPosterior || isJointCare || isCardio ? hi : baseBody}
+          stroke={isQuads || isPosterior || isJointCare ? "#FDBA74" : strokeBody}
           strokeWidth="1.4"
         />
 

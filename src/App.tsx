@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import {
+  Award,
   Bell,
+  Crown,
   Droplets,
   Dumbbell,
   Home,
@@ -11,8 +13,10 @@ import {
   Sparkles,
   Timer,
   TrendingUp,
+  Trophy,
   User as UserIcon,
   Utensils,
+  X,
 } from "lucide-react";
 import { AccessStatusGate } from "./components/AccessStatusGate";
 import { AdminPortalPage } from "./components/AdminPortalPage";
@@ -86,9 +90,311 @@ function isAdminPathname(pathname: string): boolean {
   return pathname === "/admin" || pathname.startsWith("/admin/");
 }
 
+interface CelebrationPayload {
+  id: string;
+  tier: "bronze" | "silver" | "gold";
+  title: string;
+  subtitle: string;
+  lostKg?: number;
+}
+
+const FireworksCelebrationModal: React.FC<{
+  celebration: CelebrationPayload;
+  onClose: () => void;
+}> = ({ celebration, onClose }) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId = 0;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const onResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+    window.addEventListener("resize", onResize);
+
+    interface Particle {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      alpha: number;
+      decay: number;
+      color: string;
+      radius: number;
+    }
+
+    const palette =
+      celebration.tier === "gold"
+        ? ["#FACC15", "#F59E0B", "#FF6B00", "#FEF08A", "#FFFFFF", "#FB923C"]
+        : celebration.tier === "silver"
+        ? ["#E2E8F0", "#94A3B8", "#38BDF8", "#FFFFFF", "#FF6B00", "#CBD5E1"]
+        : ["#FF6B00", "#FB923C", "#F97316", "#FDBA74", "#FBBF24", "#FFFFFF"];
+
+    const particles: Particle[] = [];
+
+    const spawnFireworkBurst = (cx: number, cy: number, count = 64) => {
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.25;
+        const speed = 2.2 + Math.random() * 6.8;
+        particles.push({
+          x: cx,
+          y: cy,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          alpha: 1,
+          decay: 0.011 + Math.random() * 0.014,
+          color: palette[Math.floor(Math.random() * palette.length)],
+          radius: 2 + Math.random() * 2.8,
+        });
+      }
+    };
+
+    // Initial celebratory salvos
+    spawnFireworkBurst(width * 0.5, height * 0.32, 80);
+    const t1 = window.setTimeout(
+      () => spawnFireworkBurst(width * 0.25, height * 0.38, 65),
+      260
+    );
+    const t2 = window.setTimeout(
+      () => spawnFireworkBurst(width * 0.75, height * 0.36, 65),
+      520
+    );
+    const t3 = window.setTimeout(
+      () => spawnFireworkBurst(width * 0.38, height * 0.26, 70),
+      850
+    );
+    const t4 = window.setTimeout(
+      () => spawnFireworkBurst(width * 0.64, height * 0.28, 70),
+      1200
+    );
+
+    const intervalId = window.setInterval(() => {
+      const rx = width * (0.18 + Math.random() * 0.64);
+      const ry = height * (0.18 + Math.random() * 0.42);
+      spawnFireworkBurst(rx, ry, 58);
+    }, 650);
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.085; // gravity
+        p.vx *= 0.985;
+        p.alpha -= p.decay;
+
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.restore();
+      }
+      animId = window.requestAnimationFrame(render);
+    };
+
+    animId = window.requestAnimationFrame(render);
+
+    return () => {
+      window.cancelAnimationFrame(animId);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+      window.clearTimeout(t4);
+      window.clearInterval(intervalId);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [celebration]);
+
+  const tierTheme =
+    celebration.tier === "gold"
+      ? {
+          badgeLabel: "PREMIAÇÃO MÁXIMA · MEDALHA DE OURO (-10 KG)",
+          gradientRing:
+            "from-yellow-300 via-amber-400 to-orange-500 shadow-[0_0_65px_rgba(250,204,21,0.65)]",
+          innerBg: "from-amber-500/30 via-yellow-500/20 to-[#151518]",
+          accentText: "text-amber-300",
+          buttonBg: "bg-gradient-to-r from-amber-400 via-yellow-500 to-[#FF6B00] text-slate-950",
+        }
+      : celebration.tier === "silver"
+      ? {
+          badgeLabel: "MARCO ESPECIAL · MEDALHA DE PRATA (-5 KG)",
+          gradientRing:
+            "from-slate-100 via-zinc-300 to-slate-400 shadow-[0_0_55px_rgba(226,232,240,0.55)]",
+          innerBg: "from-slate-300/25 via-zinc-400/15 to-[#151518]",
+          accentText: "text-slate-200",
+          buttonBg: "bg-gradient-to-r from-slate-200 via-white to-slate-300 text-slate-950",
+        }
+      : {
+          badgeLabel: "META CONQUISTADA · MEDALHA DE BRONZE (A CADA 1 KG)",
+          gradientRing:
+            "from-[#FF6B00] via-amber-600 to-orange-700 shadow-[0_0_50px_rgba(255,107,0,0.55)]",
+          innerBg: "from-[#FF6B00]/30 via-amber-700/20 to-[#151518]",
+          accentText: "text-[#FF6B00]",
+          buttonBg: "bg-[#FF6B00] hover:bg-[#F97316] text-white",
+        };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Premiação de Medalha com Fogos"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-hidden"
+      onClick={onClose}
+    >
+      {/* Fullscreen Fireworks Canvas */}
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0"
+      />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.72, y: 24 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.85, y: 16 }}
+        transition={{ type: "spring", stiffness: 280, damping: 22 }}
+        onClick={(e) => e.stopPropagation()}
+        className={`relative z-10 w-full max-w-md rounded-3xl bg-gradient-to-b ${tierTheme.innerBg} bg-[#121216] border border-white/20 p-6 sm:p-8 text-center text-white shadow-2xl`}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Fechar celebração"
+          className="absolute top-4 right-4 w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Animated Ribbon & Medal Emblem */}
+        <div className="relative mx-auto w-28 h-28 flex items-center justify-center">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-0 rounded-full border-2 border-dashed border-white/30"
+          />
+          <motion.div
+            initial={{ scale: 0.5, rotate: -15 }}
+            animate={{ scale: [1, 1.08, 1], rotate: [0, 4, -4, 0] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+            className={`w-24 h-24 rounded-full bg-gradient-to-br ${tierTheme.gradientRing} p-1 flex items-center justify-center`}
+          >
+            <div className="w-full h-full rounded-full bg-[#0B0B0D]/90 flex flex-col items-center justify-center">
+              {celebration.tier === "gold" ? (
+                <Crown className="w-11 h-11 text-yellow-400 drop-shadow" />
+              ) : celebration.tier === "silver" ? (
+                <Trophy className="w-11 h-11 text-slate-200 drop-shadow" />
+              ) : (
+                <Award className="w-11 h-11 text-[#FF6B00] drop-shadow" />
+              )}
+              {typeof celebration.lostKg === "number" && celebration.lostKg > 0 && (
+                <span className="font-mono text-[11px] font-black tracking-tight text-white">
+                  -{celebration.lostKg} KG
+                </span>
+              )}
+            </div>
+          </motion.div>
+        </div>
+
+        <p
+          className={`mt-5 text-[11px] font-extrabold uppercase tracking-widest ${tierTheme.accentText}`}
+        >
+          {tierTheme.badgeLabel}
+        </p>
+
+        <h2 className="mt-1.5 text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+          {celebration.title}
+        </h2>
+
+        <p className="mt-2.5 text-xs sm:text-sm text-zinc-300 leading-relaxed">
+          {celebration.subtitle}
+        </p>
+
+        <div className="mt-5 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-[11px] text-zinc-300 space-y-1">
+          <p className="font-bold text-white">Sistema de Premiação Personal Nutri Fit:</p>
+          <p>
+            🥉 <strong className="text-[#FF6B00]">Bronze:</strong> a cada 1 kg perdido · 🥈{" "}
+            <strong className="text-slate-200">Prata:</strong> 5 kg perdidos · 🥇{" "}
+            <strong className="text-yellow-400">Ouro:</strong> 10 kg perdidos
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className={`mt-6 w-full min-h-[48px] rounded-2xl font-extrabold text-sm tracking-wide transition-transform active:scale-95 cursor-pointer ${tierTheme.buttonBg}`}
+        >
+          Comemorar Conquista!
+        </button>
+      </motion.div>
+    </div>
+  );
+};
+
 export default function App() {
   // Discreet Toast queue
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [celebration, setCelebration] = useState<CelebrationPayload | null>(null);
+
+  const playMedalFanfare = useCallback((tier: "bronze" | "silver" | "gold") => {
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const notes =
+        tier === "gold"
+          ? [523.25, 659.25, 783.99, 1046.5, 1318.5] // C5 E5 G5 C6 E6
+          : tier === "silver"
+          ? [523.25, 659.25, 783.99, 1046.5] // C5 E5 G5 C6
+          : [440, 554.37, 659.25, 880]; // A4 C#5 E5 A5
+
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, now + idx * 0.11);
+        gain.gain.setValueAtTime(0.001, now + idx * 0.11);
+        gain.gain.exponentialRampToValueAtTime(0.16, now + idx * 0.11 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.11 + 0.38);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.11);
+        osc.stop(now + idx * 0.11 + 0.4);
+      });
+    } catch {
+      // Ignore Web Audio restriction
+    }
+  }, []);
+
+  const triggerMedalCelebration = useCallback(
+    (payload: CelebrationPayload) => {
+      setCelebration(payload);
+      playMedalFanfare(payload.tier);
+    },
+    [playMedalFanfare]
+  );
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -124,8 +430,19 @@ export default function App() {
   const handleAchievementUnlocked = useCallback(
     (badge: AchievementProgressItem) => {
       addToast(`Nova conquista desbloqueada: ${badge.title}!`, "success");
+      const weightMatch = badge.id.match(/^weight_loss_(\d+)kg$/);
+      if (weightMatch) {
+        const kg = Number(weightMatch[1]);
+        triggerMedalCelebration({
+          id: badge.id,
+          tier: badge.tier,
+          title: badge.title,
+          subtitle: badge.description,
+          lostKg: kg,
+        });
+      }
     },
-    [addToast]
+    [addToast, triggerMedalCelebration]
   );
 
   const {
@@ -642,6 +959,14 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B0B0D] text-[#0F172A] dark:text-white flex flex-col md:flex-row transition-colors duration-200">
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+        <AnimatePresence>
+          {celebration && (
+            <FireworksCelebrationModal
+              celebration={celebration}
+              onClose={() => setCelebration(null)}
+            />
+          )}
+        </AnimatePresence>
 
         {/* Desktop Compact Left Sidebar */}
         <aside
@@ -888,6 +1213,7 @@ export default function App() {
                     onResetWater={resetWater}
                     onUpdateWaterReminder={updateWaterReminder}
                     onTriggerWaterReminderTest={() => triggerWaterReminderAlert(true)}
+                    onCelebrateMedal={triggerMedalCelebration}
                     onToast={addToast}
                     onStartTodayWorkout={() => handleNavigateTab("treinos")}
                     onNavigateTab={handleNavigateTab}
@@ -948,6 +1274,7 @@ export default function App() {
                     onDeleteWorkoutSession={deleteWorkoutSession}
                     onUpdateProfile={updateProfile}
                     onNavigateTab={handleNavigateTab}
+                    onCelebrateMedal={triggerMedalCelebration}
                     onToast={addToast}
                   />
                 )}

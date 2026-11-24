@@ -19,6 +19,7 @@ export const MUSCLE_GROUPS: { id: MuscleGroupId; label: string; shortLabel: stri
   { id: "ombros", label: "Ombros", shortLabel: "Ombros" },
   { id: "biceps_triceps", label: "Bíceps e Tríceps", shortLabel: "Braços" },
   { id: "abdomen_panturrilha", label: "Abdômen e Panturrilha", shortLabel: "Abdômen/Pant." },
+  { id: "lombar_joelho", label: "Lombar & Dor no Joelho", shortLabel: "Lombar/Joelho" },
 ];
 
 const EXERCISE_DB_BASE =
@@ -69,6 +70,13 @@ const EXERCISE_DB_FOLDERS: Record<string, string> = {
   abdominal_infra_paralela: "Hanging_Leg_Raise",
   prancha_isometrica: "Plank",
   panturrilha_sentado_maquina: "Seated_Calf_Raise",
+  // Lombar & Dor no Joelho
+  ponte_gluteos_lombar: "Butt_Lift_Bridge",
+  perdigueiro_estabilizacao: "Superman",
+  mobilidade_gato_vaca: "Cat_Stretch",
+  hiperextensao_lombar_banco: "Hyperextensions_Back_Extensions",
+  agachamento_isometrico_parede: "Bodyweight_Squat",
+  extensora_isometrica_curta: "Leg_Extensions",
 };
 
 const MODALITY_DB_FOLDERS: Record<string, string> = {
@@ -98,6 +106,8 @@ const MUSCLE_BREATHING_DEFAULT: Record<MuscleGroupId, string> = {
     "Expire no esforço principal (dobrar no bíceps ou estender no tríceps) e inspire alongando sem soltar o peso.",
   abdomen_panturrilha:
     "Solte bem o ar no pico da contração para ativar profundamente o core/panturrilha e inspire no retorno.",
+  lombar_joelho:
+    "Mantenha respiração diafragmática contínua (sem prender o ar), soltando o ar devagar enquanto ativa o abdômen profundo e o glúteo.",
 };
 
 type RawExerciseItem = Omit<ExerciseItem, "imageUrl" | "secondaryImageUrl">;
@@ -857,6 +867,128 @@ const RAW_EXERCISES: RawExerciseItem[] = [
     },
     alternatives: ["leg_press_45", "prancha_isometrica"],
   },
+
+  // ================= LOMBAR & DOR NO JOELHO =================
+  {
+    id: "ponte_gluteos_lombar",
+    name: "Ponte de Glúteos Isométrica (Alívio Lombar & Joelho)",
+    muscleGroup: "lombar_joelho",
+    muscleLabel: "Lombar & Dor no Joelho",
+    equipment: "Peso Corporal",
+    defaultSets: 3,
+    defaultReps: "12 + 3s isometria",
+    defaultRest: 45,
+    defaultWeightKg: 0,
+    guide: {
+      machineSetup:
+        "Deite de barriga para cima no colchonete com joelhos flexionados a 90° e pés apoiados na largura do quadril.",
+      posture:
+        "Contraia o abdômen encostando a lombar no colchonete, empurre o chão pelos calcanhares e suba o quadril até alinhar joelhos, quadril e ombros. Segure 3 segundos no topo contraindo glúteos.",
+      commonMistake:
+        "Subir demais arqueando a coluna lombar ou empurrar pelas pontas dos pés gerando tensão anterior no joelho.",
+    },
+    alternatives: ["elevacao_pelvica", "perdigueiro_estabilizacao", "cadeira_abdutora"],
+  },
+  {
+    id: "perdigueiro_estabilizacao",
+    name: "Perdigueiro (Bird-Dog — Estabilização Lombar)",
+    muscleGroup: "lombar_joelho",
+    muscleLabel: "Lombar & Dor no Joelho",
+    equipment: "Peso Corporal",
+    defaultSets: 3,
+    defaultReps: "10 cada lado (3s pausa)",
+    defaultRest: 45,
+    defaultWeightKg: 0,
+    guide: {
+      machineSetup:
+        "Posição de 4 apoios no colchonete: mãos exatamente abaixo dos ombros e joelhos abaixo dos quadris (use apoio macio sob os joelhos).",
+      posture:
+        "Mantenha a coluna neutra e o umbigo recolhido. Estenda simultaneamente o braço direito à frente e a perna esquerda para trás até ficarem paralelos ao chão. Segure 3 segundos sem girar o quadril.",
+      commonMistake:
+        "Elevar a perna acima da linha do quadril arqueando a lombar ou deixar o tronco rodar lateralmente.",
+    },
+    alternatives: ["ponte_gluteos_lombar", "mobilidade_gato_vaca", "prancha_isometrica"],
+  },
+  {
+    id: "mobilidade_gato_vaca",
+    name: "Mobilidade Gato-Vaca & Descompressão Lombar",
+    muscleGroup: "lombar_joelho",
+    muscleLabel: "Lombar & Dor no Joelho",
+    equipment: "Peso Corporal",
+    defaultSets: 3,
+    defaultReps: "12 ciclos lentos",
+    defaultRest: 30,
+    defaultWeightKg: 0,
+    guide: {
+      machineSetup:
+        "Em 4 apoios sobre um colchonete espesso para conforto total da patela.",
+      posture:
+        "Inspire abrindo suavemente o peito e olhando à frente sem forçar a lombar; expire arredondando toda a coluna para o teto, levando o queixo ao peito e descomprimindo as vértebras lombares.",
+      commonMistake:
+        "Fazer o movimento rápido demais ou forçar hiperextensão dolorosa na fase de descida da coluna.",
+    },
+    alternatives: ["perdigueiro_estabilizacao", "ponte_gluteos_lombar"],
+  },
+  {
+    id: "hiperextensao_lombar_banco",
+    name: "Extensão Lombar Isométrica no Banco Romano (45°)",
+    muscleGroup: "lombar_joelho",
+    muscleLabel: "Lombar & Dor no Joelho",
+    equipment: "Máquina Articulada",
+    defaultSets: 3,
+    defaultReps: "10-12 (ou 30s isometria)",
+    defaultRest: 60,
+    defaultWeightKg: 0,
+    guide: {
+      machineSetup:
+        "Regule o apoio do Banco Romano logo abaixo da crista ilíaca (ossos do quadril livres para dobrar) e trave bem os calcanhares.",
+      posture:
+        "Cruze os braços no peito. Desça com a coluna 100% reta dobrando apenas o quadril e suba até o tronco ficar alinhado com as pernas (segure 2s no alinhamento neutro).",
+      commonMistake:
+        "Subir além da linha reta hiperestendendo a lombar ou arredondar as costas durante a descida.",
+    },
+    alternatives: ["ponte_gluteos_lombar", "perdigueiro_estabilizacao", "mesa_flexora"],
+  },
+  {
+    id: "agachamento_isometrico_parede",
+    name: "Isometria na Parede a 45° (Wall Sit — Proteção do Joelho)",
+    muscleGroup: "lombar_joelho",
+    muscleLabel: "Lombar & Dor no Joelho",
+    equipment: "Peso Corporal",
+    defaultSets: 3,
+    defaultReps: "30-45 seg",
+    defaultRest: 60,
+    defaultWeightKg: 0,
+    guide: {
+      machineSetup:
+        "Apoie toda a coluna e a lombar contra uma parede lisa. Posicione os pés à frente na largura dos ombros (cerca de 45 cm da parede).",
+      posture:
+        "Deslize até um ângulo seguro e indolor entre 45° e 60° de flexão dos joelhos (não precisa descer até 90° se houver sensibilidade patelar). Pressione os calcanhares no chão ativando o vasto medial.",
+      commonMistake:
+        "Deixar os joelhos passarem da ponta dos pés, fecharem para dentro ou tirar a lombar da parede.",
+    },
+    alternatives: ["extensora_isometrica_curta", "ponte_gluteos_lombar", "cadeira_abdutora"],
+  },
+  {
+    id: "extensora_isometrica_curta",
+    name: "Cadeira Extensora Isométrica / Amplitude Curta Protetora",
+    muscleGroup: "lombar_joelho",
+    muscleLabel: "Lombar & Dor no Joelho",
+    equipment: "Máquina Articulada",
+    defaultSets: 3,
+    defaultReps: "12 (últimos 30° + 3s pausa)",
+    defaultRest: 60,
+    defaultWeightKg: 20,
+    guide: {
+      machineSetup:
+        "Ajuste o encosto para que o joelho alinhe ao eixo e regule o limitador de amplitude para evitar flexão profunda (comece a partir de 60°).",
+      posture:
+        "Use carga leve a moderada. Estenda os joelhos trabalhando apenas os 30° a 45° finais do movimento e segure 3 segundos no topo para fortalecer o vasto medial e o tendão patelar sem atrito excessivo.",
+      commonMistake:
+        "Colocar carga alta ou descer o rolo todo para trás, aumentando a compressão femoropatelar.",
+    },
+    alternatives: ["agachamento_isometrico_parede", "cadeira_flexora", "cadeira_abdutora"],
+  },
 ];
 
 export const EXERCISES: ExerciseItem[] = RAW_EXERCISES.map((ex) => {
@@ -983,6 +1115,22 @@ export const WORKOUT_COMBOS: WorkoutCombo[] = [
       "remada_curvada_halteres",
       "desenvolvimento_maquina",
       "prancha_isometrica",
+    ],
+  },
+  {
+    id: "lombar_joelho",
+    title: "Alívio Lombar & Proteção de Joelho",
+    subtitle: "Estabilização do core, glúteo médio, vasto medial e fortalecimento sem impacto articular",
+    durationMin: 40,
+    focusTag: "Terapêutico",
+    exerciseIds: [
+      "mobilidade_gato_vaca",
+      "ponte_gluteos_lombar",
+      "perdigueiro_estabilizacao",
+      "cadeira_abdutora",
+      "agachamento_isometrico_parede",
+      "extensora_isometrica_curta",
+      "cadeira_flexora",
     ],
   },
 ];
@@ -1139,7 +1287,14 @@ export function buildWorkoutComplementPlan(
   const ctxNorm = `${workoutContextId} ${workoutLabel}`.toLowerCase();
   const safeWeight = Math.max(40, userWeightKg || 75);
 
+  const isLombarJoelho =
+    ctxNorm.includes("lombar") ||
+    ctxNorm.includes("joelho") ||
+    ctxNorm.includes("terapêutico") ||
+    ctxNorm.includes("terapeutico");
+
   const isLowerBody =
+    isLombarJoelho ||
     ctxNorm.includes("perna") ||
     ctxNorm.includes("quadriceps") ||
     ctxNorm.includes("gluteo") ||
@@ -1161,7 +1316,21 @@ export function buildWorkoutComplementPlan(
   // 1. Goal-tailored Cardio Prescription
   let cardio: GoalCardioPlan;
 
-  if (goalNorm.includes("barriga") || goalNorm.includes("cintura")) {
+  if (isLombarJoelho) {
+    cardio = {
+      title: "Cardio Zero Impacto · Proteção de Lombar & Joelho",
+      equipmentId: "bike",
+      equipmentLabel: "Bicicleta Ergométrica (De preferência Horizontal com Encosto) ou Elíptico",
+      durationMin: 20,
+      intensity: "Leve",
+      zoneLabel: "Zona 2 · Lubrificação Articular & Queima sem Impacto",
+      estimatedKcal: Math.round(((5.8 * 3.5 * safeWeight) / 200) * 20),
+      protocol:
+        "20 min de pedalada contínua com selim bem ajustado (joelho com leve flexão de 15° a 20° na parte baixa do pedal) e carga leve a moderada, mantendo a lombar neutra e apoiada.",
+      rationale:
+        "Promove fluxo sanguíneo sinovial na patela e descompressão dos discos lombares sem impacto vertical de corrida ou saltos, mantendo o gasto calórico para o seu objetivo.",
+    };
+  } else if (goalNorm.includes("barriga") || goalNorm.includes("cintura")) {
     cardio = {
       title: "Cardio Queima Abdominal & Cintura (Pós-Treino)",
       equipmentId: isLowerBody ? "bike" : "esteira_caminhada",
@@ -1278,7 +1447,39 @@ export function buildWorkoutComplementPlan(
   let stretches: StretchExerciseItem[];
   let stretchingTitle = "Alongamento & Mobilidade Pós-Treino";
 
-  if (isBackOrPull) {
+  if (isLombarJoelho) {
+    stretchingTitle =
+      "Alongamento Terapêutico: Descompressão Lombar, Piriforme & Alívio Patelar";
+    stretches = [
+      {
+        id: "st_lombar_joelhos_peito",
+        name: "Abraço dos Joelhos ao Peito + Balanço Sacral no Colchonete",
+        targetArea: "Coluna lombar (L4-L5/S1) e musculatura paravertebral",
+        durationSec: 45,
+        sets: "2x 45s",
+        instruction:
+          "Deitado de costas no colchonete, abrace as duas coxas por trás dos joelhos (para não comprimir a patela) trazendo-as suavemente em direção ao peito e respire fundo.",
+      },
+      {
+        id: "st_piriforme_ciatico",
+        name: "Alongamento de Piriforme e Glúteo Médio (Figura 4 Deitado)",
+        targetArea: "Nervo ciático, piriforme e estabilizadores do quadril",
+        durationSec: 40,
+        sets: "2x 40s cada lado",
+        instruction:
+          "Cruze o tornozelo sobre a coxa oposta e puxe a coxa de base até sentir aliviar a tensão profunda no glúteo e na lateral do quadril.",
+      },
+      {
+        id: "st_isquio_patela",
+        name: "Alongamento Suave de Isquiotibiais e Iliopsoas sem Pressão no Joelho",
+        targetArea: "Posterior de coxa, psoas e descompressão femoropatelar",
+        durationSec: 40,
+        sets: "2x 40s cada perna",
+        instruction:
+          "Deitado de costas, eleve uma perna segurando atrás da coxa (ou com toalha/faixa no pé) e estenda o joelho suavemente até alongar toda a cadeia posterior sem dor.",
+      },
+    ];
+  } else if (isBackOrPull) {
     stretchingTitle =
       "Alongamento Descompressivo: Dorsal, Coluna Torácica & Bíceps";
     stretches = [

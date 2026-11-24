@@ -12,16 +12,21 @@ import {
 } from "recharts";
 import {
   Activity,
+  Award,
   Calendar,
+  Crown,
   Dumbbell,
   Flame,
   Plus,
   Ruler,
   Scale,
+  Sparkles,
   Target,
   Trash2,
   TrendingDown,
+  Trophy,
 } from "lucide-react";
+import { computeWeightLossStats } from "../data/achievements";
 import { useTheme } from "./ErrorBoundary";
 import { getTodayIso } from "../hooks/useBiancoState";
 import { BiancoAppState, BodyMeasurement, StudentProfile, TabId } from "../types";
@@ -35,6 +40,13 @@ interface EvolutionTabProps {
   onDeleteWorkoutSession?: (id: string) => void;
   onUpdateProfile: (patch: Partial<StudentProfile>) => void;
   onNavigateTab: (tab: TabId) => void;
+  onCelebrateMedal?: (payload: {
+    id: string;
+    tier: "bronze" | "silver" | "gold";
+    title: string;
+    subtitle: string;
+    lostKg?: number;
+  }) => void;
   onToast: (message: string, tone?: "success" | "info" | "warning") => void;
 }
 
@@ -74,6 +86,7 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
   onDeleteWorkoutSession,
   onUpdateProfile,
   onNavigateTab,
+  onCelebrateMedal,
   onToast,
 }) => {
   const { isDark } = useTheme();
@@ -87,6 +100,8 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
   const [calfCm, setCalfCm] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [chartPeriod, setChartPeriod] = useState<WeightChartPeriod>("all");
+
+  const weightLossStats = useMemo(() => computeWeightLossStats(state), [state]);
 
   const chartColors = useMemo(
     () => ({
@@ -215,6 +230,17 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
       const parsedThigh = parseOptional(thighCm, "Coxa", 20, 150);
       const parsedCalf = parseOptional(calfCm, "Panturrilha", 15, 90);
 
+      const prevWholeKilos = Math.floor(weightLossStats.bestLostKg + 0.001);
+      const startRefWeight =
+        sortedMeasurements.length > 0
+          ? sortedMeasurements[0].weightKg
+          : state.profile.weightKg;
+      const newLostKg = Math.max(
+        0,
+        Number((startRefWeight - Number(parsedWeight.toFixed(1))).toFixed(1))
+      );
+      const newWholeKilos = Math.floor(newLostKg + 0.001);
+
       setFormError(null);
       onAddMeasurement({
         date,
@@ -229,6 +255,47 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
         calfCm: parsedCalf,
       });
 
+      if (newWholeKilos > prevWholeKilos && onCelebrateMedal) {
+        const tier: "bronze" | "silver" | "gold" =
+          newWholeKilos >= 10 && prevWholeKilos < 10
+            ? "gold"
+            : newWholeKilos >= 5 && prevWholeKilos < 5
+            ? "silver"
+            : "bronze";
+        const milestoneKg =
+          tier === "gold" ? 10 : tier === "silver" ? 5 : Math.min(10, newWholeKilos);
+        const title =
+          tier === "gold"
+            ? `Medalha de Ouro · -${newWholeKilos} kg Perdidos!`
+            : tier === "silver"
+            ? `Medalha de Prata · -${newWholeKilos} kg Perdidos!`
+            : `Medalha de Bronze · -${newWholeKilos} kg Perdido${
+                newWholeKilos > 1 ? "s" : ""
+              }!`;
+        const subtitle =
+          tier === "gold"
+            ? `Incrível! Você atingiu -${newLostKg.toFixed(
+                1
+              )} kg eliminados desde o início (${startRefWeight.toFixed(1)} kg → ${parsedWeight.toFixed(
+                1
+              )} kg) e conquistou a grande Medalha de Ouro!`
+            : tier === "silver"
+            ? `Parabéns! Você superou 5 quilos eliminados (-${newLostKg.toFixed(
+                1
+              )} kg no total) e desbloqueou sua Medalha de Prata!`
+            : `Mais um quilo vencido! Você já eliminou -${newLostKg.toFixed(
+                1
+              )} kg e conquistou sua ${newWholeKilos}ª Medalha de Bronze!`;
+
+        onCelebrateMedal({
+          id: `weight_loss_${milestoneKg}kg`,
+          tier,
+          title,
+          subtitle,
+          lostKg: newWholeKilos,
+        });
+      }
+
       setChestCm("");
       setWaistCm("");
       setAbdomenCm("");
@@ -240,6 +307,30 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
       setFormError(err instanceof Error ? err.message : "Revise os valores informados.");
     }
   };
+
+  const medalSteps = useMemo(
+    () =>
+      Array.from({ length: 10 }, (_, idx) => {
+        const kg = idx + 1;
+        const tier: "bronze" | "silver" | "gold" =
+          kg === 10 ? "gold" : kg === 5 ? "silver" : "bronze";
+        const unlocked = weightLossStats.bestLostKg >= kg - 0.01;
+        const label =
+          kg === 10
+            ? "Ouro · -10 kg"
+            : kg === 5
+            ? "Prata · -5 kg"
+            : `Bronze · -${kg} kg`;
+        return {
+          kg,
+          tier,
+          unlocked,
+          label,
+          date: weightLossStats.milestoneDates[kg],
+        };
+      }),
+    [weightLossStats]
+  );
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
@@ -327,6 +418,176 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
           <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-[#0F172A] dark:text-white">
             {state.workoutHistory.length}
           </p>
+        </div>
+      </section>
+
+      {/* PREMIAÇÃO POR QUILO PERDIDO: MEDALHAS DE BRONZE (1 KG), PRATA (5 KG) E OURO (10 KG) COM FOGOS */}
+      <section
+        aria-label="Premiação de Medalhas por Quilo Perdido"
+        className="rounded-2xl bg-white dark:bg-[#151518] border border-[#FF6B00]/45 shadow-sm dark:shadow-none p-5 sm:p-6 space-y-5"
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#E2E8F0] dark:border-[#26262B]">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#FF6B00]">
+              <Trophy className="w-4 h-4" />
+              <span>Premiação Oficial Personal Nutri Fit · Com Fogos de Artifício</span>
+            </div>
+            <h2 className="mt-1 text-lg sm:text-xl font-extrabold text-[#0F172A] dark:text-white">
+              Quadro de Medalhas por Quilo Perdido
+            </h2>
+            <p className="mt-0.5 text-xs text-[#475569] dark:text-[#A1A1AA]">
+              A cada <strong className="text-[#FF6B00]">1 kg perdido</strong> você ganha{" "}
+              <strong className="text-[#FF6B00]">Medalha de Bronze</strong> · Ao atingir{" "}
+              <strong className="text-[#0F172A] dark:text-white">5 kg</strong> ganha{" "}
+              <strong className="text-[#0F172A] dark:text-white">Medalha de Prata</strong> · Ao atingir{" "}
+              <strong className="text-amber-500">10 kg</strong> conquista a{" "}
+              <strong className="text-amber-500">Medalha de Ouro</strong>!
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="px-3 py-2 rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] text-xs font-mono tabular-nums">
+              <span className="text-[#475569] dark:text-[#A1A1AA]">Eliminado: </span>
+              <strong className="text-[#FF6B00] font-extrabold">
+                -{weightLossStats.bestLostKg.toFixed(1)} kg
+              </strong>
+              <span className="mx-1.5 text-[#CBD5E1] dark:text-[#26262B]">|</span>
+              <span>🥉 {weightLossStats.bronzeMedalsCount}</span>
+              <span className="ml-1.5">🥈 {weightLossStats.silverMedalsCount}</span>
+              <span className="ml-1.5">🥇 {weightLossStats.goldMedalsCount}</span>
+            </div>
+
+            {onCelebrateMedal && (
+              <button
+                type="button"
+                onClick={() => {
+                  const highest = weightLossStats.highestTierUnlocked || "gold";
+                  const lostCount = Math.max(1, Math.floor(weightLossStats.bestLostKg) || 10);
+                  const demoTitle =
+                    weightLossStats.highestTierUnlocked === "gold"
+                      ? "Medalha de Ouro · -10 kg Perdidos!"
+                      : weightLossStats.highestTierUnlocked === "silver"
+                      ? "Medalha de Prata · -5 kg Perdidos!"
+                      : weightLossStats.highestTierUnlocked === "bronze"
+                      ? `Medalha de Bronze · -${lostCount} kg Perdido${lostCount > 1 ? "s" : ""}!`
+                      : "Celebração de Medalhas (-1kg Bronze · -5kg Prata · -10kg Ouro)";
+                  const demoSubtitle =
+                    weightLossStats.highestTierUnlocked
+                      ? `Parabéns! Você já eliminou -${weightLossStats.bestLostKg.toFixed(
+                          1
+                        )} kg desde o peso inicial (${weightLossStats.startWeightKg.toFixed(
+                          1
+                        )} kg). Continue firme rumo à sua meta!`
+                      : "Demonstração da animação com fogos! Sempre que você registrar uma nova pesagem reduzindo 1 kg, 5 kg ou 10 kg, esta premiação será disparada automaticamente.";
+
+                  onCelebrateMedal({
+                    id: "manual_celebration",
+                    tier: highest,
+                    title: demoTitle,
+                    subtitle: demoSubtitle,
+                    lostKg: weightLossStats.highestTierUnlocked ? lostCount : 10,
+                  });
+                }}
+                className="min-h-[40px] px-3.5 rounded-xl bg-[#FF6B00] hover:bg-[#F97316] text-xs font-bold text-white flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Celebrar com Fogos</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 10-Step Medal Ladder (-1 kg to -10 kg) */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2.5">
+          {medalSteps.map((step) => {
+            const isGold = step.tier === "gold";
+            const isSilver = step.tier === "silver";
+
+            return (
+              <button
+                key={step.kg}
+                type="button"
+                onClick={() => {
+                  if (!onCelebrateMedal) return;
+                  onCelebrateMedal({
+                    id: `weight_loss_${step.kg}kg`,
+                    tier: step.tier,
+                    title:
+                      step.kg === 10
+                        ? "Medalha de Ouro · -10 kg Perdidos!"
+                        : step.kg === 5
+                        ? "Medalha de Prata · -5 kg Perdidos!"
+                        : `Medalha de Bronze · -${step.kg} kg Perdido${
+                            step.kg > 1 ? "s" : ""
+                          }`,
+                    subtitle: step.unlocked
+                      ? `Conquista desbloqueada! Você atingiu a marca de -${step.kg} kg eliminados.`
+                      : `Meta de -${step.kg} kg: faltam -${Math.max(
+                          0,
+                          step.kg - weightLossStats.bestLostKg
+                        ).toFixed(1)} kg para desbloquear esta medalha!`,
+                    lostKg: step.kg,
+                  });
+                }}
+                className={`group rounded-2xl p-3 border text-center flex flex-col items-center justify-between gap-2 transition-all cursor-pointer ${
+                  step.unlocked
+                    ? isGold
+                      ? "bg-gradient-to-b from-amber-500/20 via-yellow-500/10 to-transparent border-amber-400 shadow-sm"
+                      : isSilver
+                      ? "bg-gradient-to-b from-slate-300/25 via-zinc-300/10 to-transparent border-slate-400 shadow-sm"
+                      : "bg-gradient-to-b from-[#FF6B00]/20 via-[#FF6B00]/5 to-transparent border-[#FF6B00]"
+                    : "bg-[#F8FAFC] dark:bg-[#0B0B0D] border-[#E2E8F0] dark:border-[#26262B] hover:border-[#FF6B00]/50 opacity-80 hover:opacity-100"
+                }`}
+              >
+                <div
+                  className={`w-11 h-11 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 ${
+                    step.unlocked
+                      ? isGold
+                        ? "bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 text-slate-950 shadow-md shadow-amber-500/30"
+                        : isSilver
+                        ? "bg-gradient-to-br from-slate-100 via-zinc-300 to-slate-400 text-slate-950 shadow-md shadow-slate-400/30"
+                        : "bg-gradient-to-br from-[#FF6B00] to-amber-700 text-white shadow-md shadow-[#FF6B00]/25"
+                      : "bg-[#E2E8F0] dark:bg-[#1C1C21] text-[#64748B] dark:text-[#71717A]"
+                  }`}
+                >
+                  {isGold ? (
+                    <Crown className="w-5 h-5" />
+                  ) : isSilver ? (
+                    <Trophy className="w-5 h-5" />
+                  ) : (
+                    <Award className="w-5 h-5" />
+                  )}
+                </div>
+
+                <div>
+                  <p className="font-mono text-xs font-extrabold text-[#0F172A] dark:text-white">
+                    -{step.kg} kg
+                  </p>
+                  <p
+                    className={`text-[10px] font-bold uppercase tracking-tight ${
+                      isGold
+                        ? "text-amber-500"
+                        : isSilver
+                        ? "text-slate-500 dark:text-slate-300"
+                        : "text-[#FF6B00]"
+                    }`}
+                  >
+                    {isGold ? "Ouro" : isSilver ? "Prata" : "Bronze"}
+                  </p>
+                </div>
+
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                    step.unlocked
+                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                      : "bg-[#E2E8F0]/70 dark:bg-[#1C1C21] text-[#64748B] dark:text-[#A1A1AA]"
+                  }`}
+                >
+                  {step.unlocked ? "Conquistada" : "Ver fogos"}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </section>
 

@@ -39,12 +39,14 @@ const MUSCLE_TODAY_OPTIONS = [
   "Ombros + Abdômen",
   "Superiores Completo",
   "Full Body Queima de Gordura",
+  "Alívio Lombar & Proteção de Joelho",
 ];
 
 const LEVEL_OPTIONS: TrainingLevel[] = ["Iniciante", "Intermediário", "Avançado"];
 const TIME_OPTIONS: (30 | 45 | 60 | 90)[] = [30, 45, 60, 90];
 
 const QUICK_PROMPTS = [
+  "Exercícios para lombar e dor no joelho (fortalecimento sem impacto)",
   "Montar meu treino de hoje com base no meu objetivo",
   "Treino focado em definir costas na academia",
   "Treino + Cardio para perder peso rápido",

@@ -16,6 +16,7 @@ import {
   Plus,
   RotateCcw,
   Settings2,
+  ShieldAlert,
   Timer,
   Trash2,
   Wind,
@@ -839,6 +840,75 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
           <span>{finishBanner}</span>
         </div>
       )}
+
+      {/* Botão Rápido: Exercícios para Lombar e Dor no Joelho */}
+      <div className="rounded-2xl bg-white dark:bg-[#151518] border border-[#FF6B00]/40 shadow-sm dark:shadow-none p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start sm:items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-[#FF6B00]/12 dark:bg-[#FF6B00]/15 border border-[#FF6B00]/30 flex items-center justify-center shrink-0">
+            <ShieldAlert className="w-5 h-5 text-[#FF6B00]" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-[#FF6B00]">
+                Proteção Articular & Alívio de Dor
+              </span>
+              {(activeCombo.id === "lombar_joelho" ||
+                (subTab === "grupamentos" && selectedMuscle === "lombar_joelho")) && (
+                <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                  Ativo agora
+                </span>
+              )}
+            </div>
+            <p className="text-xs sm:text-sm font-bold text-[#0F172A] dark:text-white">
+              Exercícios para Lombar e Dor no Joelho
+            </p>
+            <p className="text-[11px] text-[#475569] dark:text-[#A1A1AA]">
+              Fortalecimento sem impacto para estabilizar coluna lombar, glúteo médio, vasto medial e tendão patelar.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              onSelectCombo("lombar_joelho");
+              setSubTab("combos");
+              onToast(
+                "Ficha 'Alívio Lombar & Proteção de Joelho' ativada com cardio zero impacto e alongamento descompressivo!",
+                "success"
+              );
+            }}
+            className={`min-h-[42px] px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+              subTab === "combos" && activeCombo.id === "lombar_joelho"
+                ? "bg-emerald-600 text-white"
+                : "bg-[#FF6B00] hover:bg-[#F97316] text-white"
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4" />
+            <span>
+              {subTab === "combos" && activeCombo.id === "lombar_joelho"
+                ? "Ficha Lombar & Joelho Ativa"
+                : "Exercícios para Lombar e Dor no Joelho"}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedMuscle("lombar_joelho");
+              setSubTab("grupamentos");
+              onToast(
+                "Exibindo lista de exercícios específicos para Lombar e Dor no Joelho.",
+                "info"
+              );
+            }}
+            className="min-h-[42px] px-3.5 rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] hover:bg-[#F1F5F9] dark:hover:bg-[#1C1C21] border border-[#E2E8F0] dark:border-[#26262B] hover:border-[#FF6B00] text-xs font-semibold text-[#0F172A] dark:text-white transition-colors cursor-pointer whitespace-nowrap"
+          >
+            Ver por exercício
+          </button>
+        </div>
+      </div>
 
       {/* 3 Sub-tabs Segmented Control */}
       <div

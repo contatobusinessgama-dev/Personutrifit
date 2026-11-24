@@ -139,7 +139,182 @@ export const ACHIEVEMENT_CATALOG: AchievementDefinition[] = [
     ctaTab: "personal",
     ctaLabel: "Abrir Personal IA",
   },
+  // ================= PREMIAÇÃO POR QUILO PERDIDO (BRONZE 1KG · PRATA 5KG · OURO 10KG) =================
+  {
+    id: "weight_loss_1kg",
+    title: "Medalha de Bronze · -1 kg Perdido",
+    description: "Eliminou seu 1º quilo corporal em relação ao peso inicial registrado!",
+    category: "Hábitos",
+    tier: "bronze",
+    icon: "award",
+    ctaTab: "evolucao",
+    ctaLabel: "Registrar pesagem",
+  },
+  {
+    id: "weight_loss_2kg",
+    title: "Medalha de Bronze · -2 kg Perdidos",
+    description: "Atingiu 2 kg eliminados na balança com foco e constância!",
+    category: "Hábitos",
+    tier: "bronze",
+    icon: "award",
+    ctaTab: "evolucao",
+    ctaLabel: "Registrar pesagem",
+  },
+  {
+    id: "weight_loss_3kg",
+    title: "Medalha de Bronze · -3 kg Perdidos",
+    description: "Alcançou 3 kg perdidos — evolução visível no espelho e na saúde!",
+    category: "Hábitos",
+    tier: "bronze",
+    icon: "award",
+    ctaTab: "evolucao",
+    ctaLabel: "Registrar pesagem",
+  },
+  {
+    id: "weight_loss_4kg",
+    title: "Medalha de Bronze · -4 kg Perdidos",
+    description: "Superou a marca de 4 kg eliminados rumo à medalha de prata!",
+    category: "Hábitos",
+    tier: "bronze",
+    icon: "award",
+    ctaTab: "evolucao",
+    ctaLabel: "Registrar pesagem",
+  },
+  {
+    id: "weight_loss_5kg",
+    title: "Medalha de Prata · -5 kg Perdidos!",
+    description: "Marco especial! Eliminou 5 quilos completos com treino, cardio e nutrição inteligente.",
+    category: "Hábitos",
+    tier: "silver",
+    icon: "trophy",
+    ctaTab: "evolucao",
+    ctaLabel: "Registrar pesagem",
+  },
+  {
+    id: "weight_loss_6kg",
+    title: "Medalha de Bronze · -6 kg Perdidos",
+    description: "Mais um quilo vencido: 6 kg eliminados com disciplina!",
+    category: "Hábitos",
+    tier: "bronze",
+    icon: "award",
+    ctaTab: "evolucao",
+    ctaLabel: "Registrar pesagem",
+  },
+  {
+    id: "weight_loss_7kg",
+    title: "Medalha de Bronze · -7 kg Perdidos",
+    description: "Atingiu 7 kg perdidos na sua jornada de transformação corporal!",
+    category: "Hábitos",
+    tier: "bronze",
+    icon: "award",
+    ctaTab: "evolucao",
+    ctaLabel: "Registrar pesagem",
+  },
+  {
+    id: "weight_loss_8kg",
+    title: "Medalha de Bronze · -8 kg Perdidos",
+    description: "Marca expressiva de 8 kg eliminados com consistência total!",
+    category: "Hábitos",
+    tier: "bronze",
+    icon: "award",
+    ctaTab: "evolucao",
+    ctaLabel: "Registrar pesagem",
+  },
+  {
+    id: "weight_loss_9kg",
+    title: "Medalha de Bronze · -9 kg Perdidos",
+    description: "9 kg eliminados — a apenas 1 quilo da grande Medalha de Ouro!",
+    category: "Hábitos",
+    tier: "bronze",
+    icon: "award",
+    ctaTab: "evolucao",
+    ctaLabel: "Registrar pesagem",
+  },
+  {
+    id: "weight_loss_10kg",
+    title: "Medalha de Ouro · -10 kg Perdidos!",
+    description: "Transformação histórica! Eliminou 10 quilos completos no Personal Nutri Fit!",
+    category: "Hábitos",
+    tier: "gold",
+    icon: "crown",
+    ctaTab: "evolucao",
+    ctaLabel: "Ver conquista",
+  },
 ];
+
+export interface WeightLossMilestoneSummary {
+  startWeightKg: number;
+  currentWeightKg: number;
+  lowestWeightKg: number;
+  currentLostKg: number;
+  bestLostKg: number;
+  bronzeMedalsCount: number;
+  silverMedalsCount: number;
+  goldMedalsCount: number;
+  highestTierUnlocked: AchievementTier | null;
+  milestoneDates: Record<number, string>;
+}
+
+export function computeWeightLossStats(state: BiancoAppState): WeightLossMilestoneSummary {
+  const sorted = [...state.measurements].sort((a, b) => a.date.localeCompare(b.date));
+  const startWeightKg =
+    sorted.length > 0 ? sorted[0].weightKg : state.profile.weightKg;
+  const currentWeightKg =
+    sorted.length > 0
+      ? sorted[sorted.length - 1].weightKg
+      : state.profile.weightKg;
+
+  let lowestWeightKg = Math.min(startWeightKg, currentWeightKg);
+  const milestoneDates: Record<number, string> = {};
+
+  for (const m of sorted) {
+    if (m.weightKg < lowestWeightKg) {
+      lowestWeightKg = m.weightKg;
+    }
+    const lostAtPoint = Number((startWeightKg - m.weightKg).toFixed(2));
+    for (let kg = 1; kg <= 10; kg++) {
+      if (lostAtPoint >= kg - 0.01 && !milestoneDates[kg]) {
+        milestoneDates[kg] = m.date;
+      }
+    }
+  }
+
+  const currentLostKg = Math.max(
+    0,
+    Number((startWeightKg - currentWeightKg).toFixed(1))
+  );
+  const bestLostKg = Math.max(
+    currentLostKg,
+    Number((startWeightKg - lowestWeightKg).toFixed(1))
+  );
+
+  const wholeKilosLost = Math.floor(bestLostKg + 0.001);
+  const bronzeMedalsCount = Math.max(0, wholeKilosLost);
+  const silverMedalsCount = Math.floor(wholeKilosLost / 5);
+  const goldMedalsCount = Math.floor(wholeKilosLost / 10);
+
+  const highestTierUnlocked: AchievementTier | null =
+    goldMedalsCount >= 1
+      ? "gold"
+      : silverMedalsCount >= 1
+      ? "silver"
+      : bronzeMedalsCount >= 1
+      ? "bronze"
+      : null;
+
+  return {
+    startWeightKg,
+    currentWeightKg,
+    lowestWeightKg,
+    currentLostKg,
+    bestLostKg,
+    bronzeMedalsCount,
+    silverMedalsCount,
+    goldMedalsCount,
+    highestTierUnlocked,
+    milestoneDates,
+  };
+}
 
 function parseIsoDayMs(iso: string): number {
   const parsed = new Date(`${iso}T12:00:00`).getTime();
@@ -281,6 +456,7 @@ export function evaluateAchievements(
   );
   const measurementCount = measurementsAsc.length;
   const hasSavedPlan = Boolean(state.savedPlan);
+  const weightLossStats = computeWeightLossStats(state);
 
   return ACHIEVEMENT_CATALOG.map((def): AchievementProgressItem => {
     const persistedDate = persisted[def.id];
@@ -291,164 +467,186 @@ export function evaluateAchievements(
     let derivedDate: string | undefined;
     let remainingLabel = "";
 
-    switch (def.id) {
-      case "first_workout": {
-        target = 1;
-        current = Math.min(totalWorkouts, target);
-        unit = "treino";
-        conditionMet = totalWorkouts >= 1;
-        derivedDate = workoutsAsc[0]?.date;
-        remainingLabel = conditionMet
-          ? "Conquista desbloqueada"
-          : "Finalize seu 1º treino na aba Treinos";
-        break;
-      }
-      case "first_week_complete": {
-        target = weeklyTarget;
-        conditionMet = bestWeekDays >= weeklyTarget;
-        current = conditionMet
-          ? target
-          : Math.min(currentWeekDays, target);
-        unit = "dias na semana";
-        derivedDate = firstWeekCompletedDate;
-        const missing = Math.max(0, target - current);
-        remainingLabel = conditionMet
-          ? `Meta de ${weeklyTarget}x/semana batida`
-          : missing === 1
-          ? "Falta 1 treino nesta semana"
-          : `Faltam ${missing} treinos nesta semana`;
-        break;
-      }
-      case "streak_3": {
-        target = 3;
-        conditionMet = bestStreak >= 3;
-        current = Math.min(conditionMet ? target : streakDays, target);
-        unit = "dias seguidos";
-        derivedDate = dateFor3;
-        const missing = Math.max(0, target - current);
-        remainingLabel = conditionMet
-          ? "Sequência de 3 dias atingida"
-          : missing === 1
-          ? "Falta 1 dia para completar"
-          : `Faltam ${missing} dias de sequência`;
-        break;
-      }
-      case "workouts_5": {
-        target = 5;
-        current = Math.min(totalWorkouts, target);
-        unit = "treinos";
-        conditionMet = totalWorkouts >= 5;
-        derivedDate = workoutsAsc[4]?.date;
-        const missing = Math.max(0, target - totalWorkouts);
-        remainingLabel = conditionMet
-          ? "5 treinos concluídos"
-          : missing === 1
-          ? "Falta apenas 1 treino"
-          : `Faltam ${missing} treinos`;
-        break;
-      }
-      case "workouts_10": {
-        target = 10;
-        current = Math.min(totalWorkouts, target);
-        unit = "treinos";
-        conditionMet = totalWorkouts >= 10;
-        derivedDate = workoutsAsc[9]?.date;
-        const missing = Math.max(0, target - totalWorkouts);
-        remainingLabel = conditionMet
-          ? "Marca de 10 treinos superada"
-          : missing === 1
-          ? "Falta apenas 1 treino"
-          : `Faltam ${missing} treinos`;
-        break;
-      }
-      case "streak_7": {
-        target = 7;
-        conditionMet = bestStreak >= 7;
-        current = Math.min(conditionMet ? target : streakDays, target);
-        unit = "dias seguidos";
-        derivedDate = dateFor7;
-        const missing = Math.max(0, target - current);
-        remainingLabel = conditionMet
-          ? "Sequência de 7 dias conquistada"
-          : missing === 1
-          ? "Falta 1 dia para completar"
-          : `Faltam ${missing} dias de sequência`;
-        break;
-      }
-      case "workouts_25": {
-        target = 25;
-        current = Math.min(totalWorkouts, target);
-        unit = "treinos";
-        conditionMet = totalWorkouts >= 25;
-        derivedDate = workoutsAsc[24]?.date;
-        const missing = Math.max(0, target - totalWorkouts);
-        remainingLabel = conditionMet
-          ? "25 sessões de disciplina"
-          : missing === 1
-          ? "Falta apenas 1 treino"
-          : `Faltam ${missing} treinos`;
-        break;
-      }
-      case "volume_10t": {
-        target = 10000;
-        current = Math.min(Math.round(totalVolumeKg), target);
-        unit = "kg";
-        conditionMet = totalVolumeKg >= 10000;
-        derivedDate = vol10tDate;
-        const missingKg = Math.max(0, Math.round(target - totalVolumeKg));
-        remainingLabel = conditionMet
-          ? "10 toneladas levantadas"
-          : `Faltam ${formatTonProgress(missingKg)} de volume`;
-        break;
-      }
-      case "volume_50t": {
-        target = 50000;
-        current = Math.min(Math.round(totalVolumeKg), target);
-        unit = "kg";
-        conditionMet = totalVolumeKg >= 50000;
-        derivedDate = vol50tDate;
-        const missingKg = Math.max(0, Math.round(target - totalVolumeKg));
-        remainingLabel = conditionMet
-          ? "50 toneladas levantadas"
-          : `Faltam ${formatTonProgress(missingKg)} de volume`;
-        break;
-      }
-      case "hydration_goal": {
-        target = waterTarget;
-        conditionMet = waterConsumed >= waterTarget || Boolean(persistedDate);
-        current = conditionMet ? target : Math.min(waterConsumed, target);
-        unit = "ml";
-        derivedDate = waterConsumed >= waterTarget ? todayIso : undefined;
-        const missingMl = Math.max(0, waterTarget - waterConsumed);
-        remainingLabel = conditionMet
-          ? "Meta diária de hidratação batida"
-          : `Faltam ${missingMl} ml hoje`;
-        break;
-      }
-      case "body_tracker": {
-        target = 2;
-        current = Math.min(measurementCount, target);
-        unit = "avaliações";
-        conditionMet = measurementCount >= 2;
-        derivedDate = measurementsAsc[1]?.date;
-        const missing = Math.max(0, target - measurementCount);
-        remainingLabel = conditionMet
-          ? "Histórico comparativo ativo"
-          : missing === 1
-          ? "Registre mais 1 avaliação física"
-          : "Registre 2 avaliações na aba Evolução";
-        break;
-      }
-      case "ai_strategist": {
-        target = 1;
-        conditionMet = hasSavedPlan || Boolean(persistedDate);
-        current = conditionMet ? 1 : 0;
-        unit = "ficha";
-        derivedDate = state.savedPlan?.savedAt?.slice(0, 10);
-        remainingLabel = conditionMet
-          ? "Ficha personalizada salva"
-          : "Salve uma ficha no Personal IA";
-        break;
+    const weightMatch = def.id.match(/^weight_loss_(\d+)kg$/);
+    if (weightMatch) {
+      const targetKg = Number(weightMatch[1]);
+      target = targetKg;
+      unit = "kg perdidos";
+      conditionMet = weightLossStats.bestLostKg >= targetKg - 0.01;
+      current = conditionMet
+        ? targetKg
+        : Number(Math.min(weightLossStats.bestLostKg, targetKg).toFixed(1));
+      derivedDate = weightLossStats.milestoneDates[targetKg];
+      const missingKg = Math.max(0, Number((targetKg - weightLossStats.bestLostKg).toFixed(1)));
+      const tierBadge =
+        targetKg === 10
+          ? "Medalha de Ouro"
+          : targetKg === 5
+          ? "Medalha de Prata"
+          : "Medalha de Bronze";
+      remainingLabel = conditionMet
+        ? `${tierBadge} (-${targetKg} kg) conquistada!`
+        : `Faltam -${missingKg.toFixed(1)} kg para a ${tierBadge}`;
+    } else {
+      switch (def.id) {
+        case "first_workout": {
+          target = 1;
+          current = Math.min(totalWorkouts, target);
+          unit = "treino";
+          conditionMet = totalWorkouts >= 1;
+          derivedDate = workoutsAsc[0]?.date;
+          remainingLabel = conditionMet
+            ? "Conquista desbloqueada"
+            : "Finalize seu 1º treino na aba Treinos";
+          break;
+        }
+        case "first_week_complete": {
+          target = weeklyTarget;
+          conditionMet = bestWeekDays >= weeklyTarget;
+          current = conditionMet
+            ? target
+            : Math.min(currentWeekDays, target);
+          unit = "dias na semana";
+          derivedDate = firstWeekCompletedDate;
+          const missing = Math.max(0, target - current);
+          remainingLabel = conditionMet
+            ? `Meta de ${weeklyTarget}x/semana batida`
+            : missing === 1
+            ? "Falta 1 treino nesta semana"
+            : `Faltam ${missing} treinos nesta semana`;
+          break;
+        }
+        case "streak_3": {
+          target = 3;
+          conditionMet = bestStreak >= 3;
+          current = Math.min(conditionMet ? target : streakDays, target);
+          unit = "dias seguidos";
+          derivedDate = dateFor3;
+          const missing = Math.max(0, target - current);
+          remainingLabel = conditionMet
+            ? "Sequência de 3 dias atingida"
+            : missing === 1
+            ? "Falta 1 dia para completar"
+            : `Faltam ${missing} dias de sequência`;
+          break;
+        }
+        case "workouts_5": {
+          target = 5;
+          current = Math.min(totalWorkouts, target);
+          unit = "treinos";
+          conditionMet = totalWorkouts >= 5;
+          derivedDate = workoutsAsc[4]?.date;
+          const missing = Math.max(0, target - totalWorkouts);
+          remainingLabel = conditionMet
+            ? "5 treinos concluídos"
+            : missing === 1
+            ? "Falta apenas 1 treino"
+            : `Faltam ${missing} treinos`;
+          break;
+        }
+        case "workouts_10": {
+          target = 10;
+          current = Math.min(totalWorkouts, target);
+          unit = "treinos";
+          conditionMet = totalWorkouts >= 10;
+          derivedDate = workoutsAsc[9]?.date;
+          const missing = Math.max(0, target - totalWorkouts);
+          remainingLabel = conditionMet
+            ? "Marca de 10 treinos superada"
+            : missing === 1
+            ? "Falta apenas 1 treino"
+            : `Faltam ${missing} treinos`;
+          break;
+        }
+        case "streak_7": {
+          target = 7;
+          conditionMet = bestStreak >= 7;
+          current = Math.min(conditionMet ? target : streakDays, target);
+          unit = "dias seguidos";
+          derivedDate = dateFor7;
+          const missing = Math.max(0, target - current);
+          remainingLabel = conditionMet
+            ? "Sequência de 7 dias conquistada"
+            : missing === 1
+            ? "Falta 1 dia para completar"
+            : `Faltam ${missing} dias de sequência`;
+          break;
+        }
+        case "workouts_25": {
+          target = 25;
+          current = Math.min(totalWorkouts, target);
+          unit = "treinos";
+          conditionMet = totalWorkouts >= 25;
+          derivedDate = workoutsAsc[24]?.date;
+          const missing = Math.max(0, target - totalWorkouts);
+          remainingLabel = conditionMet
+            ? "25 sessões de disciplina"
+            : missing === 1
+            ? "Falta apenas 1 treino"
+            : `Faltam ${missing} treinos`;
+          break;
+        }
+        case "volume_10t": {
+          target = 10000;
+          current = Math.min(Math.round(totalVolumeKg), target);
+          unit = "kg";
+          conditionMet = totalVolumeKg >= 10000;
+          derivedDate = vol10tDate;
+          const missingKg = Math.max(0, Math.round(target - totalVolumeKg));
+          remainingLabel = conditionMet
+            ? "10 toneladas levantadas"
+            : `Faltam ${formatTonProgress(missingKg)} de volume`;
+          break;
+        }
+        case "volume_50t": {
+          target = 50000;
+          current = Math.min(Math.round(totalVolumeKg), target);
+          unit = "kg";
+          conditionMet = totalVolumeKg >= 50000;
+          derivedDate = vol50tDate;
+          const missingKg = Math.max(0, Math.round(target - totalVolumeKg));
+          remainingLabel = conditionMet
+            ? "50 toneladas levantadas"
+            : `Faltam ${formatTonProgress(missingKg)} de volume`;
+          break;
+        }
+        case "hydration_goal": {
+          target = waterTarget;
+          conditionMet = waterConsumed >= waterTarget || Boolean(persistedDate);
+          current = conditionMet ? target : Math.min(waterConsumed, target);
+          unit = "ml";
+          derivedDate = waterConsumed >= waterTarget ? todayIso : undefined;
+          const missingMl = Math.max(0, waterTarget - waterConsumed);
+          remainingLabel = conditionMet
+            ? "Meta diária de hidratação batida"
+            : `Faltam ${missingMl} ml hoje`;
+          break;
+        }
+        case "body_tracker": {
+          target = 2;
+          current = Math.min(measurementCount, target);
+          unit = "avaliações";
+          conditionMet = measurementCount >= 2;
+          derivedDate = measurementsAsc[1]?.date;
+          const missing = Math.max(0, target - measurementCount);
+          remainingLabel = conditionMet
+            ? "Histórico comparativo ativo"
+            : missing === 1
+            ? "Registre mais 1 avaliação física"
+            : "Registre 2 avaliações na aba Evolução";
+          break;
+        }
+        case "ai_strategist": {
+          target = 1;
+          conditionMet = hasSavedPlan || Boolean(persistedDate);
+          current = conditionMet ? 1 : 0;
+          unit = "ficha";
+          derivedDate = state.savedPlan?.savedAt?.slice(0, 10);
+          remainingLabel = conditionMet
+            ? "Ficha personalizada salva"
+            : "Salve uma ficha no Personal IA";
+          break;
+        }
       }
     }
 
@@ -476,6 +674,9 @@ export function evaluateAchievements(
 export function formatAchievementProgressValue(
   item: AchievementProgressItem
 ): string {
+  if (item.unit === "kg perdidos") {
+    return `${item.current.toFixed(1).replace(".0", "")} / ${item.target} kg perdidos`;
+  }
   if (item.unit === "kg") {
     return `${formatTonProgress(item.current)} / ${formatTonProgress(item.target)}`;
   }

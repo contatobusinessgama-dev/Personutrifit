@@ -51,7 +51,8 @@ export type MuscleGroupId =
   | "posterior_gluteos"
   | "ombros"
   | "biceps_triceps"
-  | "abdomen_panturrilha";
+  | "abdomen_panturrilha"
+  | "lombar_joelho";
 
 export interface ExerciseGuide {
   machineSetup: string;

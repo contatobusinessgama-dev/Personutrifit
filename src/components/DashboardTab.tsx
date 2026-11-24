@@ -14,12 +14,14 @@ import {
   Play,
   RotateCcw,
   Scale,
+  ShieldAlert,
   Sparkles,
   Trophy,
   Utensils,
   Volume2,
   VolumeX,
 } from "lucide-react";
+import { computeWeightLossStats } from "../data/achievements";
 import { WORKOUT_COMBOS } from "../data/exercises";
 import {
   AchievementProgressItem,
@@ -64,6 +66,13 @@ interface DashboardTabProps {
   onResetWater: () => void;
   onUpdateWaterReminder: (patch: Partial<WaterReminderSettings>) => void;
   onTriggerWaterReminderTest: () => void;
+  onCelebrateMedal?: (payload: {
+    id: string;
+    tier: "bronze" | "silver" | "gold";
+    title: string;
+    subtitle: string;
+    lostKg?: number;
+  }) => void;
   onToast: (message: string, tone?: "success" | "info" | "warning") => void;
   onStartTodayWorkout: () => void;
   onNavigateTab: (tab: TabId) => void;
@@ -88,6 +97,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   onResetWater,
   onUpdateWaterReminder,
   onTriggerWaterReminderTest,
+  onCelebrateMedal,
   onToast,
   onStartTodayWorkout,
   onNavigateTab,
@@ -95,6 +105,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const [heroImgError, setHeroImgError] = useState(false);
   const [showReminderSettings, setShowReminderSettings] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
+  const weightLossStats = useMemo(() => computeWeightLossStats(state), [state]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -385,6 +396,18 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               <Play className="w-4 h-4 fill-current" />
               <span>Iniciar Treino Agora</span>
             </motion.button>
+
+            <motion.button
+              type="button"
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              transition={CARD_HOVER_TRANSITION}
+              onClick={() => onNavigateTab("treinos")}
+              className="min-h-[48px] px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/25 hover:border-[#FF6B00] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer"
+            >
+              <ShieldAlert className="w-4 h-4 text-[#FF6B00]" />
+              <span>Lombar & Dor no Joelho</span>
+            </motion.button>
           </div>
         </div>
       </motion.section>
@@ -445,6 +468,43 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <p className="mt-1 text-xs text-[#475569] dark:text-[#A1A1AA] font-mono tabular-nums">
               {weightStats.goalMessage} · IMC {metabolism.bmi.toFixed(1)}
             </p>
+            <div className="mt-2 flex items-center justify-between gap-1.5 text-[11px] font-mono">
+              <span className="text-[#475569] dark:text-[#A1A1AA]">
+                🥉 {weightLossStats.bronzeMedalsCount} · 🥈 {weightLossStats.silverMedalsCount} · 🥇{" "}
+                {weightLossStats.goldMedalsCount}
+              </span>
+              {onCelebrateMedal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const highest = weightLossStats.highestTierUnlocked || "gold";
+                    const lostCount = Math.max(1, Math.floor(weightLossStats.bestLostKg) || 10);
+                    onCelebrateMedal({
+                      id: "kpi_medal_celebration",
+                      tier: highest,
+                      title:
+                        highest === "gold"
+                          ? "Medalha de Ouro · -10 kg Perdidos!"
+                          : highest === "silver"
+                          ? "Medalha de Prata · -5 kg Perdidos!"
+                          : `Medalha de Bronze · -${lostCount} kg Perdido${
+                              lostCount > 1 ? "s" : ""
+                            }!`,
+                      subtitle:
+                        weightLossStats.bestLostKg >= 1
+                          ? `Você já eliminou -${weightLossStats.bestLostKg.toFixed(
+                              1
+                            )} kg! A cada 1 kg perdido você ganha Bronze, 5 kg Prata e 10 kg Ouro!`
+                          : "A cada 1 kg perdido você ganha Medalha de Bronze, com 5 kg Medalha de Prata e com 10 kg Medalha de Ouro com fogos!",
+                      lostKg: weightLossStats.bestLostKg >= 1 ? lostCount : 10,
+                    });
+                  }}
+                  className="px-2 py-0.5 rounded-md bg-[#FF6B00]/15 hover:bg-[#FF6B00] text-[#FF6B00] hover:text-white font-bold transition-colors cursor-pointer"
+                >
+                  Ver Fogos
+                </button>
+              )}
+            </div>
           </div>
 
           <button
@@ -452,7 +512,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             onClick={() => onNavigateTab("evolucao")}
             className="group/cta mt-4 pt-3 border-t border-[#E2E8F0] dark:border-[#26262B] text-xs font-semibold text-[#FF6B00] hover:text-[#EA580C] dark:hover:text-orange-300 flex items-center justify-between transition-colors cursor-pointer"
           >
-            <span>Atualizar pesagem</span>
+            <span>Atualizar pesagem & medalhas</span>
             <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover/cta:translate-x-0.5" />
           </button>
         </motion.div>

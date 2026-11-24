@@ -88,6 +88,7 @@ function mapMuscleGroupToAxis(group: MuscleGroupId): MuscleAxisKey {
     case "biceps_triceps":
       return "Braços";
     case "abdomen_panturrilha":
+    case "lombar_joelho":
       return "Core";
   }
 }
