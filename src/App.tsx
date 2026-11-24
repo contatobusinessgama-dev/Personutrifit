@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import {
+  Bell,
+  Droplets,
   Dumbbell,
   Home,
   Loader2,
@@ -155,6 +157,7 @@ export default function App() {
     updateGoals,
     addWater,
     resetWater,
+    updateWaterReminder,
     setActiveComboId,
     updateExerciseLog,
     toggleExerciseSet,
@@ -174,6 +177,134 @@ export default function App() {
     exportDataJson,
     resetAllData,
   } = useBiancoState(handleAchievementUnlocked);
+
+  const playWaterChime = useCallback(() => {
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const notes = [587.33, 880]; // D5 -> A5 gentle droplet chime
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + idx * 0.14);
+        gain.gain.setValueAtTime(0.001, now + idx * 0.14);
+        gain.gain.exponentialRampToValueAtTime(0.11, now + idx * 0.14 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.14 + 0.28);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.14);
+        osc.stop(now + idx * 0.14 + 0.3);
+      });
+    } catch {
+      // Ignore Web Audio restriction if page has had no user gesture yet
+    }
+  }, []);
+
+  const triggerWaterReminderAlert = useCallback(
+    (isManualTest = false) => {
+      const remainingMl = Math.max(
+        0,
+        metabolism.waterTargetMl - state.water.consumedMl
+      );
+      const nowMs = Date.now();
+      updateWaterReminder({ lastRemindedAt: nowMs });
+
+      if (state.waterReminder?.soundEnabled) {
+        playWaterChime();
+      }
+
+      const msg =
+        remainingMl > 0
+          ? `Hora de beber água! Faltam ${(remainingMl / 1000).toFixed(
+              2
+            )} L para atingir sua meta de ${(metabolism.waterTargetMl / 1000).toFixed(
+              2
+            )} L hoje.`
+          : `Hora de hidratar! Você já bateu sua meta de ${(
+              metabolism.waterTargetMl / 1000
+            ).toFixed(2)} L hoje — mantenha o ritmo!`;
+
+      addToast(msg, "info", {
+        actionLabel: "+250ml agora",
+        durationMs: 11000,
+        onAction: () => {
+          addWater(250);
+          addToast("+250 ml de água registrados!", "success");
+        },
+      });
+
+      if (
+        (state.waterReminder?.browserNotificationEnabled || isManualTest) &&
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        try {
+          new Notification("Lembrete de Hidratação · Personal Nutri Fit", {
+            body: msg,
+          });
+        } catch {
+          // Ignore browser notification errors in restricted contexts
+        }
+      }
+    },
+    [
+      metabolism.waterTargetMl,
+      state.water.consumedMl,
+      state.waterReminder?.soundEnabled,
+      state.waterReminder?.browserNotificationEnabled,
+      updateWaterReminder,
+      playWaterChime,
+      addToast,
+      addWater,
+    ]
+  );
+
+  // Automatic Background Water Reminder Checker (runs every 30s while logged in)
+  useEffect(() => {
+    if (!user || !state.profile.onboardingCompleted) return;
+    const reminder = state.waterReminder;
+    if (!reminder?.enabled) return;
+
+    const checkReminder = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      if (hour < reminder.startHour || hour >= reminder.endHour) {
+        return;
+      }
+      // Stop automatic alerts once 100% of daily water goal is reached
+      if (state.water.consumedMl >= metabolism.waterTargetMl) {
+        return;
+      }
+      const intervalMs = (reminder.intervalMin || 60) * 60 * 1000;
+      const last = reminder.lastRemindedAt;
+      if (!last) {
+        updateWaterReminder({ lastRemindedAt: Date.now() });
+        return;
+      }
+      if (Date.now() - last >= intervalMs) {
+        triggerWaterReminderAlert(false);
+      }
+    };
+
+    checkReminder();
+    const id = window.setInterval(checkReminder, 30000);
+    return () => window.clearInterval(id);
+  }, [
+    user,
+    state.profile.onboardingCompleted,
+    state.waterReminder,
+    state.water.consumedMl,
+    metabolism.waterTargetMl,
+    updateWaterReminder,
+    triggerWaterReminderAlert,
+  ]);
 
   const [pathname, setPathname] = useState<string>(() => window.location.pathname || "/");
   const [tabState, setTabState] = useState<{ tab: TabId; direction: number }>(() => ({
@@ -618,18 +749,55 @@ export default function App() {
                   {(state.water.consumedMl / 1000).toFixed(2)} L
                 </span>
               </div>
+              <div className="flex items-center justify-between pt-0.5">
+                <span className="inline-flex items-center gap-1">
+                  <Bell className="w-3 h-3 text-[#FF6B00]" />
+                  <span>Lembrete água</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateWaterReminder({
+                      enabled: !state.waterReminder?.enabled,
+                      lastRemindedAt: Date.now(),
+                    })
+                  }
+                  className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-bold cursor-pointer transition-colors ${
+                    state.waterReminder?.enabled
+                      ? "bg-[#FF6B00]/15 text-[#FF6B00] border border-[#FF6B00]/40"
+                      : "bg-[#F1F5F9] dark:bg-[#1C1C21] text-[#64748B] dark:text-[#A1A1AA]"
+                  }`}
+                >
+                  {state.waterReminder?.enabled
+                    ? `Ativo · ${state.waterReminder.intervalMin}m`
+                    : "Pausado"}
+                </button>
+              </div>
             </div>
 
             <PWAInstallButton compact />
 
-            <button
-              type="button"
-              onClick={() => startRestTimer(60)}
-              className="w-full min-h-[42px] px-3 rounded-xl bg-[#F8FAFC] dark:bg-[#151518] hover:bg-[#F1F5F9] dark:hover:bg-[#1C1C21] border border-[#E2E8F0] dark:border-[#26262B] hover:border-[#FF6B00]/50 text-xs font-semibold text-[#0F172A] dark:text-white flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              <Timer className="w-4 h-4 text-[#FF6B00]" />
-              <span>Cronômetro 60s</span>
-            </button>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  addWater(250);
+                  addToast("+250 ml de água registrados!", "success");
+                }}
+                className="min-h-[38px] px-2.5 rounded-xl bg-[#F8FAFC] dark:bg-[#151518] hover:bg-[#F1F5F9] dark:hover:bg-[#1C1C21] border border-[#E2E8F0] dark:border-[#26262B] hover:border-[#FF6B00]/50 text-[11px] font-semibold text-[#0F172A] dark:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <Droplets className="w-3.5 h-3.5 text-[#FF6B00]" />
+                <span>+250ml</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => startRestTimer(60)}
+                className="min-h-[38px] px-2.5 rounded-xl bg-[#F8FAFC] dark:bg-[#151518] hover:bg-[#F1F5F9] dark:hover:bg-[#1C1C21] border border-[#E2E8F0] dark:border-[#26262B] hover:border-[#FF6B00]/50 text-[11px] font-semibold text-[#0F172A] dark:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <Timer className="w-3.5 h-3.5 text-[#FF6B00]" />
+                <span>60s</span>
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -718,6 +886,9 @@ export default function App() {
                     onUpdateGoals={updateGoals}
                     onAddWater={addWater}
                     onResetWater={resetWater}
+                    onUpdateWaterReminder={updateWaterReminder}
+                    onTriggerWaterReminderTest={() => triggerWaterReminderAlert(true)}
+                    onToast={addToast}
                     onStartTodayWorkout={() => handleNavigateTab("treinos")}
                     onNavigateTab={handleNavigateTab}
                   />

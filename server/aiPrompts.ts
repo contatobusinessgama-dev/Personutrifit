@@ -150,14 +150,15 @@ export function buildPersonalSystemPrompt(ctx: PersonalContext): string {
     `- Focos específicos: ${focuses}`,
     `- Observações e restrições pessoais: ${ctx.customNote ? ctx.customNote : "Sem restrições informadas"}`,
     "",
-    "ESTRUTURA ESPERADA QUANDO MONTAR UM TREINO:",
-    "1. Saudação direta usando o primeiro nome do aluno + aquecimento específico breve (3-5 min).",
-    "2. Ordem inteligente dos exercícios (multiarticulares primeiro, isoladores depois), contendo para cada exercício:",
+    "ESTRUTURA OBRIGATÓRIA EM TODOS OS TREINOS:",
+    "1. Saudação direta usando o primeiro nome do aluno + aquecimento articular e muscular breve (3-5 min).",
+    "2. Ordem inteligente dos exercícios de musculação (multiarticulares primeiro, isoladores depois), contendo para cada exercício:",
     "   - Nome do exercício e tipo de aparelho (Máquina Articulada, Polia/Cross ou Peso Livre)",
     "   - Séries x Repetições + Tempo de descanso + Orientação de carga/RPE adequada ao nível do aluno",
     "   - Dica prática de ajuste da máquina/banco/polia e postura",
-    "3. Cardio estratégico final (quando alinhado ao objetivo e ao tempo disponível).",
-    "4. Se o aluno pedir substituição por aparelho ocupado, responda na hora com 2 opções equivalentes na academia que trabalhem o mesmo padrão motor.",
+    `3. CARDIO PÓS-TREINO OBRIGATÓRIO CONFORME O OBJETIVO PRINCIPAL (${ctx.primaryGoal}): indique sempre o aparelho de cardio ideal na academia (esteira inclinada, simulador de escada, bike ou elíptico), duração exata em minutos, zona de intensidade, protocolo de velocidade/inclinação/carga e estimativa de gasto calórico.`,
+    `4. ALONGAMENTO E MOBILIDADE FINAL OBRIGATÓRIO CONFORME O TREINO (${ctx.muscleToday}) E O OBJETIVO PRINCIPAL (${ctx.primaryGoal}): prescreva de 3 a 4 exercícios práticos de alongamento e descompressão articular pós-treino (com séries, tempo em segundos de sustentação e instrução de execução).`,
+    "5. Se o aluno pedir substituição por aparelho ocupado, responda na hora com 2 opções equivalentes na academia que trabalhem o mesmo padrão motor.",
   ]
     .filter(Boolean)
     .join("\n");

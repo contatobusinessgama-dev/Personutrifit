@@ -204,6 +204,18 @@ export interface ChatMessage {
   isWorkoutPlan?: boolean;
 }
 
+export type WaterReminderIntervalMin = 30 | 45 | 60 | 90 | 120;
+
+export interface WaterReminderSettings {
+  enabled: boolean;
+  intervalMin: WaterReminderIntervalMin;
+  startHour: number; // 0..23
+  endHour: number; // 0..23
+  soundEnabled: boolean;
+  browserNotificationEnabled: boolean;
+  lastRemindedAt: number | null; // epoch ms
+}
+
 export interface WaterState {
   date: string;
   consumedMl: number;
@@ -253,6 +265,7 @@ export interface BiancoAppState {
   profile: StudentProfile;
   goals: StudentGoals;
   water: WaterState;
+  waterReminder: WaterReminderSettings;
   activeComboId: string;
   exerciseLogs: Record<string, ExerciseLogEntry>;
   swappedExercises: Record<string, string>;

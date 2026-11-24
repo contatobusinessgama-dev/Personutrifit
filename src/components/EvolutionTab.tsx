@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import {
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ReferenceLine,
@@ -25,6 +26,8 @@ import { useTheme } from "./ErrorBoundary";
 import { getTodayIso } from "../hooks/useBiancoState";
 import { BiancoAppState, BodyMeasurement, StudentProfile, TabId } from "../types";
 
+type WeightChartPeriod = "30d" | "90d" | "all";
+
 interface EvolutionTabProps {
   state: BiancoAppState;
   onAddMeasurement: (entry: Omit<BodyMeasurement, "id">) => void;
@@ -45,6 +48,15 @@ function formatFullDateBr(isoDate: string): string {
   const parts = isoDate.split("-");
   if (parts.length !== 3) return isoDate;
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function getCutoffIso(daysAgo: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function formatPair(right?: number, left?: number, legacy?: number): string {
@@ -74,6 +86,7 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
   const [thighCm, setThighCm] = useState("");
   const [calfCm, setCalfCm] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [chartPeriod, setChartPeriod] = useState<WeightChartPeriod>("all");
 
   const chartColors = useMemo(
     () => ({
@@ -82,6 +95,7 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
       tickFill: isDark ? "#A1A1AA" : "#475569",
       dotStroke: isDark ? "#0B0B0D" : "#FFFFFF",
       activeDotFill: isDark ? "#FFFFFF" : "#0F172A",
+      metaStroke: isDark ? "#71717A" : "#94A3B8",
       tooltipStyle: {
         backgroundColor: isDark ? "#0B0B0D" : "#FFFFFF",
         borderColor: isDark ? "#26262B" : "#E2E8F0",
@@ -102,16 +116,49 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
     [state.measurements]
   );
 
-  const chartData = useMemo(
-    () =>
-      sortedMeasurements.map((m) => ({
+  const filteredMeasurements = useMemo(() => {
+    if (chartPeriod === "all") return sortedMeasurements;
+    const cutoff = getCutoffIso(chartPeriod === "30d" ? 30 : 90);
+    const filtered = sortedMeasurements.filter((m) => m.date >= cutoff);
+    return filtered.length > 0 ? filtered : sortedMeasurements;
+  }, [sortedMeasurements, chartPeriod]);
+
+  const chartData = useMemo(() => {
+    const source: BodyMeasurement[] =
+      filteredMeasurements.length > 0
+        ? filteredMeasurements
+        : [
+            {
+              id: "profile_baseline",
+              date: getTodayIso(),
+              weightKg: state.profile.weightKg,
+            },
+          ];
+
+    const startWeight = source[0]?.weightKg ?? state.profile.weightKg;
+    return source.map((m, idx) => {
+      const prevWeight = idx > 0 ? source[idx - 1].weightKg : m.weightKg;
+      const deltaPrev = Number((m.weightKg - prevWeight).toFixed(1));
+      const deltaStart = Number((m.weightKg - startWeight).toFixed(1));
+      const diffToMeta = Number((m.weightKg - state.profile.targetWeightKg).toFixed(1));
+      return {
         dateLabel: formatDateBr(m.date),
-        fullDate: formatFullDateBr(m.date),
+        fullDate:
+          m.id === "profile_baseline"
+            ? `${formatFullDateBr(m.date)} (Peso atual do perfil)`
+            : formatFullDateBr(m.date),
         peso: m.weightKg,
         meta: state.profile.targetWeightKg,
-      })),
-    [sortedMeasurements, state.profile.targetWeightKg]
-  );
+        deltaPrev,
+        deltaStart,
+        diffToMeta,
+        chestCm: m.chestCm,
+        waistCm: m.waistCm,
+        abdomenCm: m.abdomenCm,
+        calfCm: m.calfCm,
+      };
+    });
+  }, [filteredMeasurements, state.profile.targetWeightKg, state.profile.weightKg]);
 
   const firstWeight =
     sortedMeasurements.length > 0 ? sortedMeasurements[0].weightKg : state.profile.weightKg;
@@ -119,6 +166,10 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
     sortedMeasurements.length > 0
       ? sortedMeasurements[sortedMeasurements.length - 1].weightKg
       : state.profile.weightKg;
+  const minWeight = useMemo(() => {
+    const weights = chartData.map((d) => d.peso);
+    return weights.length > 0 ? Math.min(...weights) : state.profile.weightKg;
+  }, [chartData, state.profile.weightKg]);
   const totalDelta = Number((latestWeight - firstWeight).toFixed(1));
   const remainingToGoal = Number(
     (latestWeight - state.profile.targetWeightKg).toFixed(1)
@@ -126,14 +177,14 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
 
   const yDomain = useMemo(() => {
     const allWeights = [
-      ...sortedMeasurements.map((m) => m.weightKg),
+      ...chartData.map((d) => d.peso),
       state.profile.targetWeightKg,
       state.profile.weightKg,
     ];
     const min = Math.floor(Math.min(...allWeights) - 2);
     const max = Math.ceil(Math.max(...allWeights) + 2);
     return [min, max];
-  }, [sortedMeasurements, state.profile.targetWeightKg, state.profile.weightKg]);
+  }, [chartData, state.profile.targetWeightKg, state.profile.weightKg]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -284,98 +335,183 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
         {/* Interactive Recharts Weight Chart */}
         <section
           aria-label="Gráfico de evolução de peso"
-          className="xl:col-span-7 rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] shadow-sm dark:shadow-none p-5 flex flex-col justify-between"
+          className="xl:col-span-7 rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] shadow-sm dark:shadow-none p-5 flex flex-col justify-between gap-4"
         >
-          <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
                 <TrendingDown className="w-4 h-4 text-[#FF6B00]" />
-                <span>Curva de Peso em Direção à Meta</span>
+                <span>Progressão de Peso ao Longo do Tempo</span>
               </h2>
               <p className="text-xs text-[#475569] dark:text-[#A1A1AA]">
-                Linha pontilhada indica sua meta de{" "}
+                Evolução com base nas suas medições registradas em direção à meta de{" "}
                 <span className="font-mono text-[#0F172A] dark:text-white font-semibold tabular-nums">
                   {state.profile.targetWeightKg} kg
                 </span>
               </p>
             </div>
+
+            {/* Period Selector */}
+            <div className="flex items-center gap-1 self-start sm:self-auto rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] p-1">
+              {(
+                [
+                  { id: "30d", label: "30 dias" },
+                  { id: "90d", label: "90 dias" },
+                  { id: "all", label: "Tudo" },
+                ] as { id: WeightChartPeriod; label: string }[]
+              ).map((p) => {
+                const active = chartPeriod === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setChartPeriod(p.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                      active
+                        ? "bg-[#FF6B00] text-white"
+                        : "text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {chartData.length > 0 ? (
-            <div className="w-full h-[270px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 12, right: 16, left: 0, bottom: 5 }}>
-                  <CartesianGrid
-                    stroke={chartColors.gridStroke}
-                    strokeDasharray="3 3"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="dateLabel"
-                    stroke={chartColors.axisStroke}
-                    tick={{ fill: chartColors.tickFill, fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={{ stroke: chartColors.gridStroke }}
-                  />
-                  <YAxis
-                    width={48}
-                    domain={yDomain}
-                    stroke={chartColors.axisStroke}
-                    tick={{ fill: chartColors.tickFill, fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={false}
-                    unit="kg"
-                  />
-                  <Tooltip
-                    contentStyle={chartColors.tooltipStyle}
-                    labelStyle={chartColors.tooltipLabelStyle}
-                    labelFormatter={(_, payload) =>
-                      payload?.[0]?.payload?.fullDate || ""
-                    }
-                    formatter={(value) => {
-                      const num = typeof value === "number" ? value : Number(value);
-                      return [Number.isFinite(num) ? `${num.toFixed(1)} kg` : "—", "Peso"];
-                    }}
-                  />
-                  <ReferenceLine
-                    y={state.profile.targetWeightKg}
-                    stroke="#FF6B00"
-                    strokeDasharray="5 5"
-                    strokeOpacity={0.75}
-                    label={{
-                      value: `Meta ${state.profile.targetWeightKg}kg`,
-                      position: "insideTopRight",
-                      fill: "#FF6B00",
-                      fontSize: 11,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="peso"
-                    stroke="#FF6B00"
-                    strokeWidth={3}
-                    dot={{ r: 4.5, fill: "#FF6B00", stroke: chartColors.dotStroke, strokeWidth: 2 }}
-                    activeDot={{
-                      r: 6.5,
-                      fill: chartColors.activeDotFill,
-                      stroke: "#FF6B00",
-                      strokeWidth: 2,
-                    }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+          <div className="w-full h-[275px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 12, right: 16, left: 0, bottom: 5 }}>
+                <CartesianGrid
+                  stroke={chartColors.gridStroke}
+                  strokeDasharray="3 3"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="dateLabel"
+                  stroke={chartColors.axisStroke}
+                  tick={{ fill: chartColors.tickFill, fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={{ stroke: chartColors.gridStroke }}
+                />
+                <YAxis
+                  width={48}
+                  domain={yDomain}
+                  stroke={chartColors.axisStroke}
+                  tick={{ fill: chartColors.tickFill, fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
+                  unit="kg"
+                />
+                <Tooltip
+                  contentStyle={chartColors.tooltipStyle}
+                  labelStyle={chartColors.tooltipLabelStyle}
+                  labelFormatter={(_, payload) => {
+                    const row = payload?.[0]?.payload;
+                    if (!row) return "";
+                    const deltaLabel =
+                      row.deltaPrev === 0
+                        ? ""
+                        : ` (${row.deltaPrev > 0 ? "+" : ""}${row.deltaPrev.toFixed(1)} kg vs anterior)`;
+                    return `${row.fullDate}${deltaLabel}`;
+                  }}
+                  formatter={(value, name) => {
+                    const num = typeof value === "number" ? value : Number(value);
+                    const label =
+                      name === "meta" ? "Peso Meta" : "Peso Registrado";
+                    return [
+                      Number.isFinite(num) ? `${num.toFixed(1)} kg` : "—",
+                      label,
+                    ];
+                  }}
+                />
+                <Legend
+                  verticalAlign="top"
+                  height={28}
+                  iconType="circle"
+                  formatter={(value) => (
+                    <span className="text-xs font-semibold text-[#334155] dark:text-[#D4D4D8]">
+                      {value === "meta"
+                        ? `Peso Meta (${state.profile.targetWeightKg} kg)`
+                        : "Peso Registrado (kg)"}
+                    </span>
+                  )}
+                />
+                <ReferenceLine
+                  y={state.profile.targetWeightKg}
+                  stroke="#FF6B00"
+                  strokeDasharray="5 5"
+                  strokeOpacity={0.65}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="meta"
+                  name="meta"
+                  stroke={chartColors.metaStroke}
+                  strokeWidth={1.75}
+                  strokeDasharray="4 4"
+                  dot={false}
+                  activeDot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="peso"
+                  name="peso"
+                  stroke="#FF6B00"
+                  strokeWidth={3}
+                  dot={{
+                    r: 4.5,
+                    fill: "#FF6B00",
+                    stroke: chartColors.dotStroke,
+                    strokeWidth: 2,
+                  }}
+                  activeDot={{
+                    r: 6.5,
+                    fill: chartColors.activeDotFill,
+                    stroke: "#FF6B00",
+                    strokeWidth: 2,
+                  }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Summary Strip inside Chart Card */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-[#E2E8F0] dark:border-[#26262B] text-xs">
+            <div className="rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] px-3 py-2">
+              <span className="text-[11px] text-[#475569] dark:text-[#A1A1AA] block">
+                Peso inicial
+              </span>
+              <span className="font-mono font-bold text-[#0F172A] dark:text-white tabular-nums">
+                {firstWeight.toFixed(1)} kg
+              </span>
             </div>
-          ) : (
-            <div className="h-[240px] rounded-xl border border-dashed border-[#CBD5E1] dark:border-[#26262B] bg-[#F8FAFC] dark:bg-[#0B0B0D]/60 flex flex-col items-center justify-center text-center px-6 gap-2">
-              <Scale className="w-7 h-7 text-[#FF6B00]/80" />
-              <p className="text-sm font-semibold text-[#0F172A] dark:text-white">
-                Nenhuma pesagem registrada
-              </p>
-              <p className="text-xs text-[#475569] dark:text-[#A1A1AA] max-w-sm">
-                Registre seu peso no formulário ao lado ou faça uma avaliação completa no Perfil para acompanhar sua curva.
-              </p>
+            <div className="rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] px-3 py-2">
+              <span className="text-[11px] text-[#475569] dark:text-[#A1A1AA] block">
+                Peso atual
+              </span>
+              <span className="font-mono font-bold text-[#FF6B00] tabular-nums">
+                {latestWeight.toFixed(1)} kg
+              </span>
             </div>
-          )}
+            <div className="rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] px-3 py-2">
+              <span className="text-[11px] text-[#475569] dark:text-[#A1A1AA] block">
+                Menor peso
+              </span>
+              <span className="font-mono font-bold text-[#0F172A] dark:text-white tabular-nums">
+                {minWeight.toFixed(1)} kg
+              </span>
+            </div>
+            <div className="rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] px-3 py-2">
+              <span className="text-[11px] text-[#475569] dark:text-[#A1A1AA] block">
+                Medições no gráfico
+              </span>
+              <span className="font-mono font-bold text-[#0F172A] dark:text-white tabular-nums">
+                {sortedMeasurements.length}{" "}
+                {sortedMeasurements.length === 1 ? "registro" : "registros"}
+              </span>
+            </div>
+          </div>
         </section>
 
         {/* Log New Weight & Measurements Form */}

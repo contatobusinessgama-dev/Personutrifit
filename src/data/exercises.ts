@@ -1097,3 +1097,330 @@ export const GYM_MODALITIES: GymModality[] = RAW_GYM_MODALITIES.map((mod) => {
     secondaryImageUrl: `${EXERCISE_DB_BASE}/${folder}/1.jpg`,
   };
 });
+
+export interface StretchExerciseItem {
+  id: string;
+  name: string;
+  targetArea: string;
+  durationSec: number;
+  sets: string;
+  instruction: string;
+}
+
+export interface GoalCardioPlan {
+  title: string;
+  equipmentId: string;
+  equipmentLabel: string;
+  durationMin: number;
+  intensity: "Leve" | "Moderado" | "Intenso" | "HIIT";
+  zoneLabel: string;
+  estimatedKcal: number;
+  protocol: string;
+  rationale: string;
+}
+
+export interface WorkoutComplementPlan {
+  primaryGoal: string;
+  workoutLabel: string;
+  cardio: GoalCardioPlan;
+  stretchingTitle: string;
+  stretchingDurationMin: number;
+  stretchingNote: string;
+  stretches: StretchExerciseItem[];
+}
+
+export function buildWorkoutComplementPlan(
+  primaryGoal: string,
+  workoutContextId: string,
+  workoutLabel: string,
+  userWeightKg = 75
+): WorkoutComplementPlan {
+  const goalNorm = (primaryGoal || "").toLowerCase();
+  const ctxNorm = `${workoutContextId} ${workoutLabel}`.toLowerCase();
+  const safeWeight = Math.max(40, userWeightKg || 75);
+
+  const isLowerBody =
+    ctxNorm.includes("perna") ||
+    ctxNorm.includes("quadriceps") ||
+    ctxNorm.includes("gluteo") ||
+    ctxNorm.includes("posterior") ||
+    ctxNorm.includes("panturrilha");
+
+  const isBackOrPull =
+    ctxNorm.includes("costas") ||
+    ctxNorm.includes("biceps") ||
+    ctxNorm.includes("puxar");
+
+  const isChestOrPush =
+    ctxNorm.includes("peito") ||
+    ctxNorm.includes("triceps") ||
+    ctxNorm.includes("ombro") ||
+    ctxNorm.includes("empurrar") ||
+    ctxNorm.includes("superiores");
+
+  // 1. Goal-tailored Cardio Prescription
+  let cardio: GoalCardioPlan;
+
+  if (goalNorm.includes("barriga") || goalNorm.includes("cintura")) {
+    cardio = {
+      title: "Cardio Queima Abdominal & Cintura (Pós-Treino)",
+      equipmentId: isLowerBody ? "bike" : "esteira_caminhada",
+      equipmentLabel: isLowerBody
+        ? "Bicicleta Ergométrica / Spinning"
+        : "Esteira (Caminhada Inclinada)",
+      durationMin: 25,
+      intensity: "Intenso",
+      zoneLabel: "Zona 3 · Oxidação Lipídica Acelerada",
+      estimatedKcal: Math.round(((7.4 * 3.5 * safeWeight) / 200) * 25),
+      protocol: isLowerBody
+        ? "5 min giro leve + 16 min alternando 1 min cadência alta (95 RPM) e 1 min carga moderada + 4 min volta à calma."
+        : "5 min aquecimento (4.5 km/h) + 15 min inclinação 10–12% a 5.2 km/h (sem segurar no painel) + 5 min desaceleração.",
+      rationale:
+        "Maximiza a mobilização de gordura visceral e subcutânea abdominal logo após depletar o glicogênio na musculação.",
+    };
+  } else if (goalNorm.includes("perder peso")) {
+    cardio = {
+      title: "Cardio Queima de Gordura Contínua (Pós-Treino)",
+      equipmentId: isLowerBody ? "eliptico" : "esteira_caminhada",
+      equipmentLabel: isLowerBody
+        ? "Elíptico / Transport"
+        : "Esteira (Caminhada Inclinada)",
+      durationMin: 25,
+      intensity: "Moderado",
+      zoneLabel: "Zona 2–3 · Queima de Gordura Constante (65–75% FCmáx)",
+      estimatedKcal: Math.round(((6.4 * 3.5 * safeWeight) / 200) * 25),
+      protocol: isLowerBody
+        ? "25 min contínuos no Elíptico com carga 6–8, poupando o impacto articular após treino de pernas."
+        : "25 min de caminhada inclinada (inclinação 8–10% · velocidade 5.0–5.5 km/h) com braços livres.",
+      rationale:
+        "Eleva o déficit calórico diário com preservação total da massa magra construída nos aparelhos.",
+    };
+  } else if (goalNorm.includes("glúteos") || goalNorm.includes("gluteos")) {
+    cardio = {
+      title: "Cardio Ativação Glútea & Posterior (Pós-Treino)",
+      equipmentId: "escada",
+      equipmentLabel: "Escada (StairMaster)",
+      durationMin: 18,
+      intensity: "Moderado",
+      zoneLabel: "Zona 2–3 · Recrutamento Glúteo Contínuo",
+      estimatedKcal: Math.round(((7.6 * 3.5 * safeWeight) / 200) * 18),
+      protocol:
+        "18 min no Simulador de Escada (nível 6–8) pisando com o calcanhar inteiro no degrau e tronco levemente inclinado à frente, sem apoiar o peso nos braços.",
+      rationale:
+        "Mantém tensão metabólica nos glúteos e posteriores enquanto acelera a definição de membros inferiores.",
+    };
+  } else if (
+    goalNorm.includes("massa muscular") ||
+    goalNorm.includes("hipertrofia")
+  ) {
+    cardio = {
+      title: "Cardio Metabólico Regenerativo (Pró-Hipertrofia)",
+      equipmentId: "bike",
+      equipmentLabel: "Bicicleta Ergométrica / Spinning",
+      durationMin: 15,
+      intensity: "Leve",
+      zoneLabel: "Zona 2 · Condicionamento & Sensibilidade à Insulina",
+      estimatedKcal: Math.round(((5.2 * 3.5 * safeWeight) / 200) * 15),
+      protocol:
+        "15 min em ritmo leve a moderado constante (conversacional), sem gerar fadiga muscular residual.",
+      rationale:
+        "Melhora a capilarização, a recuperação entre séries pesadas e a absorção de nutrientes pós-treino sem interferir na hipertrofia.",
+    };
+  } else if (goalNorm.includes("costas") || goalNorm.includes("postura")) {
+    cardio = {
+      title: "Cardio Postural & Cintura Escapular Ativa",
+      equipmentId: "eliptico",
+      equipmentLabel: "Elíptico / Transport",
+      durationMin: 20,
+      intensity: "Moderado",
+      zoneLabel: "Zona 2–3 · Cardio Sinérgico Superior/Inferior",
+      estimatedKcal: Math.round(((6.5 * 3.5 * safeWeight) / 200) * 20),
+      protocol:
+        "20 min no Elíptico tracionando e empurrando ativamente as hastes móveis com peito aberto, ombros baixos e escápulas firmes.",
+      rationale:
+        "Estimula a resistência postural da cadeia posterior e acelera a definição da região dorsal.",
+    };
+  } else if (goalNorm.includes("condicionamento") || goalNorm.includes("resistência")) {
+    cardio = {
+      title: "Cardio Intervalado de Condicionamento & VO2",
+      equipmentId: isLowerBody ? "bike" : "esteira_corrida",
+      equipmentLabel: isLowerBody
+        ? "Bicicleta Ergométrica / Spinning"
+        : "Esteira (Corrida)",
+      durationMin: 22,
+      intensity: "HIIT",
+      zoneLabel: "Zona 3–4 · Capacidade Cardiorrespiratória",
+      estimatedKcal: Math.round(((8.8 * 3.5 * safeWeight) / 200) * 22),
+      protocol:
+        "4 min aquecimento + 7 blocos de (1 min ritmo forte + 1 min recuperação ativa) + 4 min desaceleração.",
+      rationale:
+        "Aumenta o fôlego entre séries na academia, reduz a frequência cardíaca de repouso e eleva o EPOC pós-treino.",
+    };
+  } else {
+    cardio = {
+      title: "Cardio Definição Muscular & Gasto Calórico",
+      equipmentId: isLowerBody ? "bike" : "esteira_caminhada",
+      equipmentLabel: isLowerBody
+        ? "Bicicleta Ergométrica / Spinning"
+        : "Esteira (Caminhada Inclinada)",
+      durationMin: 20,
+      intensity: "Moderado",
+      zoneLabel: "Zona 2–3 · Definição & Recuperação Ativa",
+      estimatedKcal: Math.round(((6.2 * 3.5 * safeWeight) / 200) * 20),
+      protocol:
+        "20 min contínuos em ritmo moderado constante mantendo respiração nasal/oral controlada.",
+      rationale:
+        "Complementa a sessão de musculação elevando o gasto calórico total e acelerando a definição corporal.",
+    };
+  }
+
+  // 2. Muscle- + Goal-tailored Stretching & Mobility Protocol (Alongamento)
+  let stretches: StretchExerciseItem[];
+  let stretchingTitle = "Alongamento & Mobilidade Pós-Treino";
+
+  if (isBackOrPull) {
+    stretchingTitle =
+      "Alongamento Descompressivo: Dorsal, Coluna Torácica & Bíceps";
+    stretches = [
+      {
+        id: "st_dorsal_barra",
+        name: "Alongamento de Grande Dorsal e Escápulas na Polia/Espaldar",
+        targetArea: "Grande dorsal, romboides e descompressão lombar",
+        durationSec: 40,
+        sets: "2x 40s cada lado",
+        instruction:
+          "Segure na coluna do cross ou espaldar com uma mão, recue o quadril inclinando o tronco e deixe o dorsal alongar profundamente soltando o ar.",
+      },
+      {
+        id: "st_toracica_gato",
+        name: "Mobilidade Torácica + Posição da Criança (Child's Pose)",
+        targetArea: "Coluna torácica, lombar e ombros",
+        durationSec: 45,
+        sets: "2x 45s",
+        instruction:
+          "No colchonete, sente sobre os calcanhares e estenda os braços à frente no solo, afundando suavemente o peito em direção ao chão.",
+      },
+      {
+        id: "st_biceps_parede",
+        name: "Alongamento de Bíceps, Peitoral e Cervical",
+        targetArea: "Bíceps braquial, deltoide anterior e trapézio superior",
+        durationSec: 30,
+        sets: "2x 30s cada braço",
+        instruction:
+          "Apoie a palma da mão na coluna do aparelho com o braço estendido na altura do ombro e gire suavemente o tronco para o lado oposto.",
+      },
+    ];
+  } else if (isChestOrPush) {
+    stretchingTitle =
+      "Alongamento Postural: Abertura Peitoral, Ombros & Tríceps";
+    stretches = [
+      {
+        id: "st_peitoral_portal",
+        name: "Abertura de Peitoral e Deltoide Anterior na Estrutura do Cross",
+        targetArea: "Peitoral maior/menor e postura de ombros",
+        durationSec: 40,
+        sets: "2x 40s cada lado",
+        instruction:
+          "Apoie o antebraço a 90° na estrutura vertical do aparelho e dê um passo à frente até sentir abrir todo o peitoral sem girar a lombar.",
+      },
+      {
+        id: "st_triceps_acima",
+        name: "Alongamento de Tríceps e Cápsula Posterior do Ombro",
+        targetArea: "Cabeça longa do tríceps e manguito rotador",
+        durationSec: 30,
+        sets: "2x 30s cada braço",
+        instruction:
+          "Leve a mão atrás da nuca apontando o cotovelo para o teto e puxe suavemente com a outra mão mantendo a cabeça alinhada.",
+      },
+      {
+        id: "st_escapula_coluna",
+        name: "Extensão Torácica e Relaxamento Cervical",
+        targetArea: "Coluna torácica e trapézio",
+        durationSec: 35,
+        sets: "2x 35s",
+        instruction:
+          "Entrelace os dedos atrás do corpo, estenda os cotovelos abrindo o esterno e faça 5 respirações profundas desacelerando os batimentos.",
+      },
+    ];
+  } else if (isLowerBody) {
+    stretchingTitle =
+      "Alongamento de Membros Inferiores: Glúteos, Quadríceps & Posterior";
+    stretches = [
+      {
+        id: "st_piriforme_gluteo",
+        name: "Alongamento de Glúteo e Piriforme (Figura 4 no Colchonete/Banco)",
+        targetArea: "Glúteo máximo, glúteo médio e descompressão sacral",
+        durationSec: 40,
+        sets: "2x 40s cada perna",
+        instruction:
+          "Deitado de costas (ou sentado no banco), cruze o tornozelo sobre o joelho oposto e puxe a coxa em direção ao peito mantendo a lombar apoiada.",
+      },
+      {
+        id: "st_isquiotibiais",
+        name: "Alongamento de Posterior de Coxa e Panturrilha",
+        targetArea: "Isquiotibiais e gastrocnêmio/sóleo",
+        durationSec: 40,
+        sets: "2x 40s cada perna",
+        instruction:
+          "Apoie o calcanhar sobre um banco baixo ou step com o joelho estendido e incline o tronco à frente mantendo a coluna reta.",
+      },
+      {
+        id: "st_psoas_quadriceps",
+        name: "Alongamento de Quadríceps e Flexores de Quadril (Ilipsoas)",
+        targetArea: "Reto femoral e mobilidade pélvica",
+        durationSec: 35,
+        sets: "2x 35s cada perna",
+        instruction:
+          "Em base de afundo no colchonete (joelho de trás apoiado), projete suavemente o quadril à frente contraindo o glúteo para liberar a lombar.",
+      },
+    ];
+  } else {
+    stretchingTitle = "Alongamento Global & Descompressão Pós-Treino";
+    stretches = [
+      {
+        id: "st_global_cadeia",
+        name: "Alongamento de Cadeia Posterior e Dorsal",
+        targetArea: "Dorsal, lombar e posteriores de coxa",
+        durationSec: 40,
+        sets: "2x 40s",
+        instruction:
+          "Segure em um apoio firme à frente na altura do quadril, recue os pés e alongue toda a coluna e posteriores respirando fundo.",
+      },
+      {
+        id: "st_global_peitoral",
+        name: "Abertura Torácica e Peitoral em Pé",
+        targetArea: "Peitoral, ombros e postura",
+        durationSec: 35,
+        sets: "2x 35s",
+        instruction:
+          "Abra os braços apoiando no espaldar ou estrutura do cross, mantendo escápulas baixas e respiração diafragmática lenta.",
+      },
+      {
+        id: "st_global_quadril",
+        name: "Mobilidade de Quadril e Glúteos",
+        targetArea: "Glúteos e flexores do quadril",
+        durationSec: 35,
+        sets: "2x 35s cada lado",
+        instruction:
+          "Cruze uma perna em formato de número 4 sentado no banco e incline suavemente o tronco à frente com a coluna alinhada.",
+      },
+    ];
+  }
+
+  const stretchingNote = goalNorm.includes("costas") || goalNorm.includes("postura")
+    ? "Foco especial no realinhamento escapular e descompressão torácica para consolidar sua postura após as séries."
+    : goalNorm.includes("glúteos") || goalNorm.includes("pernas")
+    ? "Essencial para liberar a tensão nos flexores do quadril, melhorar a amplitude do agachamento e acelerar a recuperação muscular."
+    : "Reduz a tensão articular pós-treino, ativa o sistema parassimpático e acelera a recuperação para a próxima sessão.";
+
+  return {
+    primaryGoal,
+    workoutLabel,
+    cardio,
+    stretchingTitle,
+    stretchingDurationMin: 8,
+    stretchingNote,
+    stretches,
+  };
+}
+

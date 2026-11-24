@@ -63,6 +63,8 @@ import {
   TrainingLevel,
   UserAccessStatus,
   UserRole,
+  WaterReminderIntervalMin,
+  WaterReminderSettings,
   WeeklyFrequency,
 } from "../types";
 import {
@@ -139,6 +141,54 @@ function buildNutriWelcome(name: string): ChatMessage {
   };
 }
 
+const DEFAULT_WATER_REMINDER: WaterReminderSettings = {
+  enabled: true,
+  intervalMin: 60,
+  startHour: 8,
+  endHour: 22,
+  soundEnabled: true,
+  browserNotificationEnabled: false,
+  lastRemindedAt: null,
+};
+
+function sanitizeWaterReminder(
+  raw?: Partial<WaterReminderSettings> | null
+): WaterReminderSettings {
+  if (!raw || typeof raw !== "object") {
+    return { ...DEFAULT_WATER_REMINDER };
+  }
+  const validIntervals: WaterReminderIntervalMin[] = [30, 45, 60, 90, 120];
+  const intervalMin: WaterReminderIntervalMin = validIntervals.includes(
+    raw.intervalMin as WaterReminderIntervalMin
+  )
+    ? (raw.intervalMin as WaterReminderIntervalMin)
+    : 60;
+  const startHour =
+    typeof raw.startHour === "number" && raw.startHour >= 0 && raw.startHour <= 23
+      ? Math.floor(raw.startHour)
+      : 8;
+  const endHour =
+    typeof raw.endHour === "number" && raw.endHour >= 0 && raw.endHour <= 23
+      ? Math.floor(raw.endHour)
+      : 22;
+
+  return {
+    enabled: typeof raw.enabled === "boolean" ? raw.enabled : true,
+    intervalMin,
+    startHour,
+    endHour: endHour >= startHour ? endHour : Math.min(23, startHour + 8),
+    soundEnabled: typeof raw.soundEnabled === "boolean" ? raw.soundEnabled : true,
+    browserNotificationEnabled:
+      typeof raw.browserNotificationEnabled === "boolean"
+        ? raw.browserNotificationEnabled
+        : false,
+    lastRemindedAt:
+      typeof raw.lastRemindedAt === "number" && Number.isFinite(raw.lastRemindedAt)
+        ? raw.lastRemindedAt
+        : null,
+  };
+}
+
 function createDefaultState(): BiancoAppState {
   const today = getTodayIso();
   return {
@@ -167,6 +217,7 @@ function createDefaultState(): BiancoAppState {
       date: today,
       consumedMl: 0,
     },
+    waterReminder: { ...DEFAULT_WATER_REMINDER },
     activeComboId: "costas_biceps",
     exerciseLogs: createInitialLogs(),
     swappedExercises: {},
@@ -223,6 +274,7 @@ function loadState(): BiancoAppState {
       profile: mergedProfile,
       goals: { ...defaults.goals, ...(parsed.goals || {}) },
       water,
+      waterReminder: sanitizeWaterReminder(parsed.waterReminder),
       exerciseLogs: mergedLogs,
       swappedExercises: parsed.swappedExercises || {},
       workoutHistory: Array.isArray(parsed.workoutHistory)
@@ -1353,6 +1405,10 @@ export function useBiancoState(
       return {
         ...prev,
         water: { date: today, consumedMl: nextMl },
+        waterReminder: {
+          ...prev.waterReminder,
+          lastRemindedAt: Date.now(),
+        },
       };
     });
   }, []);
@@ -1368,6 +1424,19 @@ export function useBiancoState(
       water: { date: today, consumedMl: 0 },
     }));
   }, []);
+
+  const updateWaterReminder = useCallback(
+    (patch: Partial<WaterReminderSettings>) => {
+      setState((prev) => ({
+        ...prev,
+        waterReminder: sanitizeWaterReminder({
+          ...prev.waterReminder,
+          ...patch,
+        }),
+      }));
+    },
+    []
+  );
 
   const setActiveComboId = useCallback(
     (comboId: string) => {
@@ -1821,6 +1890,7 @@ export function useBiancoState(
     updateGoals,
     addWater,
     resetWater,
+    updateWaterReminder,
     setActiveComboId,
     updateExerciseLog,
     toggleExerciseSet,
