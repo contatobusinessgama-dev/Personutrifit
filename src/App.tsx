@@ -1288,6 +1288,8 @@ export default function App() {
                     streakDays={streakDays}
                     onUpdateProfile={updateProfile}
                     onAddMeasurement={addMeasurement}
+                    onUpdateWaterReminder={updateWaterReminder}
+                    onTriggerWaterReminderTest={() => triggerWaterReminderAlert(true)}
                     onExportJson={exportDataJson}
                     onResetAllData={() => {
                       resetAllData();

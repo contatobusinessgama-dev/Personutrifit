@@ -1,9 +1,14 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  Bell,
+  BellOff,
   Camera,
   Check,
+  CheckCircle2,
+  Clock,
   Download,
+  Droplets,
   Flame,
   LogOut,
   Ruler,
@@ -13,6 +18,8 @@ import {
   Trash2,
   Trophy,
   User as UserIcon,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { getTodayIso } from "../hooks/useBiancoState";
@@ -22,6 +29,8 @@ import {
   MetabolicResult,
   StudentProfile,
   TrainingLevel,
+  WaterReminderIntervalMin,
+  WaterReminderSettings,
   WeeklyFrequency,
 } from "../types";
 import { compressAvatarFile } from "../utils/avatarUpload";
@@ -29,6 +38,20 @@ import { AVATAR_PRESETS, frequencyToActivityLevel } from "../utils/metabolism";
 import { PWAInstallButton } from "./PWAInstallButton";
 import { StudentAvatar } from "./StudentAvatar";
 import { ThemeSegmentedControl } from "./ErrorBoundary";
+
+type ProfileSubTab = "geral" | "hidratacao";
+
+const WATER_REMINDER_INTERVALS: {
+  value: WaterReminderIntervalMin;
+  label: string;
+  hint: string;
+}[] = [
+  { value: 30, label: "30 min", hint: "Hidratação intensa" },
+  { value: 45, label: "45 min", hint: "Ritmo constante" },
+  { value: 60, label: "1 hora", hint: "Recomendado" },
+  { value: 90, label: "1h30", hint: "Moderado" },
+  { value: 120, label: "2 horas", hint: "Espaçado" },
+];
 
 interface ProfileTabProps {
   state: BiancoAppState;
@@ -38,6 +61,8 @@ interface ProfileTabProps {
   streakDays: number;
   onUpdateProfile: (patch: Partial<StudentProfile>) => void;
   onAddMeasurement: (entry: Omit<BodyMeasurement, "id">) => void;
+  onUpdateWaterReminder: (patch: Partial<WaterReminderSettings>) => void;
+  onTriggerWaterReminderTest: () => void;
   onExportJson: () => string;
   onResetAllData: () => void;
   onSignOut?: () => Promise<void> | void;
@@ -128,6 +153,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   streakDays,
   onUpdateProfile,
   onAddMeasurement,
+  onUpdateWaterReminder,
+  onTriggerWaterReminderTest,
   onExportJson,
   onResetAllData,
   onSignOut,
@@ -135,6 +162,95 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   onToast,
 }) => {
   const { profile } = state;
+  const [activeSubTab, setActiveSubTab] = useState<ProfileSubTab>("geral");
+
+  const reminder: WaterReminderSettings = state.waterReminder || {
+    enabled: true,
+    intervalMin: 60,
+    startHour: 8,
+    endHour: 22,
+    soundEnabled: true,
+    browserNotificationEnabled: false,
+    lastRemindedAt: null,
+  };
+
+  const browserNotifSupported =
+    typeof window !== "undefined" && "Notification" in window;
+  const [browserPermission, setBrowserPermission] = useState<string>(() =>
+    browserNotifSupported ? Notification.permission : "unsupported"
+  );
+
+  const hydrationPlanStats = useMemo(() => {
+    const activeHours = Math.max(1, reminder.endHour - reminder.startHour);
+    const remindersPerDay = Math.max(
+      1,
+      Math.floor((activeHours * 60) / Math.max(15, reminder.intervalMin))
+    );
+    const mlPerReminder = Math.max(
+      100,
+      Math.round(metabolism.waterTargetMl / remindersPerDay)
+    );
+    const consumedPct = Math.min(
+      100,
+      Math.round((state.water.consumedMl / Math.max(1, metabolism.waterTargetMl)) * 100)
+    );
+    const windowStartPct = (reminder.startHour / 24) * 100;
+    const windowWidthPct = (activeHours / 24) * 100;
+    return {
+      activeHours,
+      remindersPerDay,
+      mlPerReminder,
+      consumedPct,
+      windowStartPct,
+      windowWidthPct,
+    };
+  }, [
+    reminder.startHour,
+    reminder.endHour,
+    reminder.intervalMin,
+    metabolism.waterTargetMl,
+    state.water.consumedMl,
+  ]);
+
+  const handleToggleBrowserNotifications = async () => {
+    if (!browserNotifSupported) {
+      onToast(
+        "Seu navegador não suporta notificações nativas, mas o alerta visual e sonoro dentro do app segue ativo!",
+        "info"
+      );
+      return;
+    }
+
+    if (reminder.browserNotificationEnabled) {
+      onUpdateWaterReminder({ browserNotificationEnabled: false });
+      onToast("Notificações do navegador desativadas.", "info");
+      return;
+    }
+
+    if (Notification.permission === "granted") {
+      setBrowserPermission("granted");
+      onUpdateWaterReminder({ browserNotificationEnabled: true });
+      onToast("Notificações do navegador ativadas para os lembretes de água!", "success");
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      setBrowserPermission(permission);
+      if (permission === "granted") {
+        onUpdateWaterReminder({ browserNotificationEnabled: true });
+        onToast("Permissão concedida! Você receberá alertas do navegador para beber água.", "success");
+      } else {
+        onUpdateWaterReminder({ browserNotificationEnabled: false });
+        onToast(
+          "Permissão de notificação negada no navegador. O alerta visual e o som dentro do app continuam funcionando.",
+          "warning"
+        );
+      }
+    } catch {
+      onToast("O alerta visual e o som dentro do app continuam ativos!", "info");
+    }
+  };
 
   // Editable personal form state
   const [name, setName] = useState(profile.name);
@@ -453,6 +569,473 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         )}
       </section>
 
+      {/* NAVEGAÇÃO INTERNA DA SEÇÃO DE PERFIL */}
+      <div
+        role="tablist"
+        aria-label="Seções do Perfil"
+        className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1.5 rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] shadow-sm dark:shadow-none"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSubTab === "geral"}
+          onClick={() => setActiveSubTab("geral")}
+          className={`min-h-[46px] px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeSubTab === "geral"
+              ? "bg-[#FF6B00] text-white shadow-sm"
+              : "text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white hover:bg-[#F8FAFC] dark:hover:bg-[#1C1C21]"
+          }`}
+        >
+          <UserIcon className="w-4 h-4" />
+          <span>Perfil & Avaliação Física</span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSubTab === "hidratacao"}
+          onClick={() => setActiveSubTab("hidratacao")}
+          className={`min-h-[46px] px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeSubTab === "hidratacao"
+              ? "bg-[#FF6B00] text-white shadow-sm"
+              : "text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white hover:bg-[#F8FAFC] dark:hover:bg-[#1C1C21]"
+          }`}
+        >
+          <Droplets className="w-4 h-4" />
+          <span>Configurações de Hidratação</span>
+          <span
+            className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-extrabold ${
+              activeSubTab === "hidratacao"
+                ? "bg-white/20 text-white"
+                : reminder.enabled
+                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                : "bg-[#E2E8F0] dark:bg-[#26262B] text-[#64748B] dark:text-[#A1A1AA]"
+            }`}
+          >
+            {reminder.enabled ? "ON" : "OFF"}
+          </span>
+        </button>
+      </div>
+
+      {/* ABA: CONFIGURAÇÕES DE HIDRATAÇÃO */}
+      {activeSubTab === "hidratacao" && (
+        <div role="tabpanel" aria-label="Configurações de Hidratação" className="space-y-6">
+          {/* Status Geral & Meta Diária */}
+          <section className="rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] shadow-sm dark:shadow-none p-5 sm:p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-[#FF6B00]/12 dark:bg-[#FF6B00]/15 border border-[#FF6B00]/30 flex items-center justify-center shrink-0">
+                  <Droplets className="w-5 h-5 text-[#FF6B00]" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-lg font-extrabold text-[#0F172A] dark:text-white">
+                      Configurações de Hidratação
+                    </h2>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${
+                        reminder.enabled
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                          : "bg-[#F1F5F9] dark:bg-[#1C1C21] text-[#64748B] dark:text-[#A1A1AA]"
+                      }`}
+                    >
+                      {reminder.enabled ? "Lembretes Ativos" : "Lembretes Pausados"}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-[#475569] dark:text-[#A1A1AA]">
+                    Personalize seus horários, frequência e alertas. As alterações são salvas automaticamente e sincronizadas com o Dashboard.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextEnabled = !reminder.enabled;
+                    onUpdateWaterReminder({
+                      enabled: nextEnabled,
+                      lastRemindedAt: Date.now(),
+                    });
+                    onToast(
+                      nextEnabled
+                        ? "Lembretes de hidratação ativados!"
+                        : "Lembretes de hidratação pausados.",
+                      nextEnabled ? "success" : "info"
+                    );
+                  }}
+                  className={`min-h-[42px] px-4 rounded-xl text-xs font-bold border flex items-center gap-2 transition-colors cursor-pointer ${
+                    reminder.enabled
+                      ? "bg-[#FF6B00] border-[#FF6B00] text-white hover:bg-[#F97316]"
+                      : "bg-[#F8FAFC] dark:bg-[#0B0B0D] border-[#E2E8F0] dark:border-[#26262B] text-[#0F172A] dark:text-white hover:border-[#FF6B00]"
+                  }`}
+                >
+                  {reminder.enabled ? (
+                    <>
+                      <Bell className="w-4 h-4" />
+                      <span>Lembrete Ligado</span>
+                    </>
+                  ) : (
+                    <>
+                      <BellOff className="w-4 h-4" />
+                      <span>Ativar Lembretes</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onTriggerWaterReminderTest}
+                  className="min-h-[42px] px-4 rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] hover:bg-[#F1F5F9] dark:hover:bg-[#1C1C21] border border-[#E2E8F0] dark:border-[#26262B] hover:border-[#FF6B00]/60 text-xs font-semibold text-[#0F172A] dark:text-white flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Bell className="w-4 h-4 text-[#FF6B00]" />
+                  <span>Testar Alerta</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Resumo Dinâmico da Rotina de Hidratação */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <div className="rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] p-4">
+                <span className="text-xs text-[#475569] dark:text-[#A1A1AA]">
+                  Meta diária calculada
+                </span>
+                <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-[#FF6B00]">
+                  {(metabolism.waterTargetMl / 1000).toFixed(2)}{" "}
+                  <span className="text-xs font-normal text-[#475569] dark:text-[#A1A1AA]">
+                    L/dia
+                  </span>
+                </p>
+                <p className="mt-1 text-[11px] text-[#64748B] dark:text-[#71717A]">
+                  Hoje: {state.water.consumedMl} ml ({hydrationPlanStats.consumedPct}%)
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] p-4">
+                <span className="text-xs text-[#475569] dark:text-[#A1A1AA]">
+                  Janela de lembretes
+                </span>
+                <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-[#0F172A] dark:text-white">
+                  {String(reminder.startHour).padStart(2, "0")}h –{" "}
+                  {String(reminder.endHour).padStart(2, "0")}h
+                </p>
+                <p className="mt-1 text-[11px] text-[#64748B] dark:text-[#71717A]">
+                  {hydrationPlanStats.activeHours}h ativas · pausa noturna automática
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] p-4">
+                <span className="text-xs text-[#475569] dark:text-[#A1A1AA]">
+                  Ritmo sugerido por alerta
+                </span>
+                <p className="mt-1 font-mono text-2xl font-bold tabular-nums text-[#0F172A] dark:text-white">
+                  ~{hydrationPlanStats.mlPerReminder}{" "}
+                  <span className="text-xs font-normal text-[#475569] dark:text-[#A1A1AA]">
+                    ml/dose
+                  </span>
+                </p>
+                <p className="mt-1 text-[11px] text-[#64748B] dark:text-[#71717A]">
+                  ~{hydrationPlanStats.remindersPerDay} lembretes/dia a cada{" "}
+                  {reminder.intervalMin} min
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Horários de Início e Término */}
+          <section className="rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] shadow-sm dark:shadow-none p-5 sm:p-6 space-y-5">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[#FF6B00]" />
+              <div>
+                <h3 className="text-base font-bold text-[#0F172A] dark:text-white">
+                  Horários de Início e Término
+                </h3>
+                <p className="text-xs text-[#475569] dark:text-[#A1A1AA]">
+                  Defina em qual faixa do dia os lembretes podem ser disparados para respeitar seu descanso.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] p-4 space-y-2">
+                <label
+                  htmlFor="profile-water-start-hour"
+                  className="block text-xs font-bold text-[#334155] dark:text-[#E4E4E7]"
+                >
+                  Horário de início dos lembretes
+                </label>
+                <select
+                  id="profile-water-start-hour"
+                  value={reminder.startHour}
+                  onChange={(e) => {
+                    const nextStart = Number(e.target.value);
+                    const nextEnd = Math.max(nextStart + 1, reminder.endHour);
+                    onUpdateWaterReminder({
+                      startHour: nextStart,
+                      endHour: nextEnd,
+                    });
+                    onToast(
+                      `Janela de hidratação ajustada: ${String(nextStart).padStart(
+                        2,
+                        "0"
+                      )}:00 às ${String(nextEnd).padStart(2, "0")}:00.`,
+                      "info"
+                    );
+                  }}
+                  className="w-full min-h-[44px] rounded-xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] focus:border-[#FF6B00] focus:outline-none px-3.5 font-mono text-sm font-bold text-[#0F172A] dark:text-white"
+                >
+                  {Array.from({ length: 18 }, (_, i) => i + 5).map((h) => (
+                    <option key={h} value={h}>
+                      {String(h).padStart(2, "0")}:00
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-[#64748B] dark:text-[#A1A1AA]">
+                  Primeiro lembrete após você acordar.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B] p-4 space-y-2">
+                <label
+                  htmlFor="profile-water-end-hour"
+                  className="block text-xs font-bold text-[#334155] dark:text-[#E4E4E7]"
+                >
+                  Horário de término (pausa noturna)
+                </label>
+                <select
+                  id="profile-water-end-hour"
+                  value={reminder.endHour}
+                  onChange={(e) => {
+                    const nextEnd = Number(e.target.value);
+                    onUpdateWaterReminder({ endHour: nextEnd });
+                    onToast(
+                      `Pausa noturna definida a partir das ${String(nextEnd).padStart(
+                        2,
+                        "0"
+                      )}:00.`,
+                      "info"
+                    );
+                  }}
+                  className="w-full min-h-[44px] rounded-xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] focus:border-[#FF6B00] focus:outline-none px-3.5 font-mono text-sm font-bold text-[#0F172A] dark:text-white"
+                >
+                  {Array.from({ length: 18 }, (_, i) => i + 6)
+                    .filter((h) => h > reminder.startHour)
+                    .map((h) => (
+                      <option key={h} value={h}>
+                        {String(h).padStart(2, "0")}:00
+                      </option>
+                    ))}
+                </select>
+                <p className="text-[11px] text-[#64748B] dark:text-[#A1A1AA]">
+                  Nenhum alerta será disparado após este horário.
+                </p>
+              </div>
+            </div>
+
+            {/* Visual 24h Window Bar */}
+            <div className="space-y-1.5 pt-1">
+              <div className="relative h-3 w-full rounded-full bg-[#E2E8F0] dark:bg-[#0B0B0D] overflow-hidden border border-[#E2E8F0] dark:border-[#26262B]">
+                <div
+                  style={{
+                    left: `${hydrationPlanStats.windowStartPct}%`,
+                    width: `${hydrationPlanStats.windowWidthPct}%`,
+                  }}
+                  className="absolute inset-y-0 rounded-full bg-gradient-to-r from-[#FF6B00] to-[#F97316]"
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-mono text-[#64748B] dark:text-[#71717A] tabular-nums">
+                <span>00:00</span>
+                <span>06:00</span>
+                <span>12:00</span>
+                <span>18:00</span>
+                <span>24:00</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Intervalo do Lembrete */}
+          <section className="rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] shadow-sm dark:shadow-none p-5 sm:p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Bell className="w-4 h-4 text-[#FF6B00]" />
+              <div>
+                <h3 className="text-base font-bold text-[#0F172A] dark:text-white">
+                  Intervalo do Lembrete
+                </h3>
+                <p className="text-xs text-[#475569] dark:text-[#A1A1AA]">
+                  Escolha de quanto em quanto tempo deseja ser avisado para beber água.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {WATER_REMINDER_INTERVALS.map((opt) => {
+                const active = reminder.intervalMin === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      onUpdateWaterReminder({
+                        enabled: true,
+                        intervalMin: opt.value,
+                        lastRemindedAt: Date.now(),
+                      });
+                      onToast(
+                        `Intervalo do lembrete atualizado para cada ${opt.label}!`,
+                        "success"
+                      );
+                    }}
+                    className={`rounded-xl p-3.5 text-left border transition-all cursor-pointer ${
+                      active
+                        ? "bg-[#FF6B00]/12 dark:bg-[#FF6B00]/15 border-[#FF6B00] ring-1 ring-[#FF6B00]/40"
+                        : "bg-[#F8FAFC] dark:bg-[#0B0B0D] border-[#E2E8F0] dark:border-[#26262B] hover:border-[#FF6B00]/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className={`font-mono text-base font-extrabold ${
+                          active ? "text-[#FF6B00]" : "text-[#0F172A] dark:text-white"
+                        }`}
+                      >
+                        {opt.label}
+                      </span>
+                      {active && (
+                        <CheckCircle2 className="w-4 h-4 text-[#FF6B00] shrink-0" />
+                      )}
+                    </div>
+                    <p className="mt-1 text-[11px] text-[#64748B] dark:text-[#A1A1AA]">
+                      {opt.hint}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Canais de Alerta: Sons e Notificações do Navegador */}
+          <section className="rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] shadow-sm dark:shadow-none p-5 sm:p-6 space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-[#0F172A] dark:text-white">
+                Alertas: Sons e Notificações do Navegador
+              </h3>
+              <p className="text-xs text-[#475569] dark:text-[#A1A1AA] mt-0.5">
+                Selecione como deseja receber cada lembrete de hidratação.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Sound Toggle Card */}
+              <button
+                type="button"
+                onClick={() => {
+                  const nextSound = !reminder.soundEnabled;
+                  onUpdateWaterReminder({ soundEnabled: nextSound });
+                  onToast(
+                    nextSound
+                      ? "Aviso sonoro ativado para lembretes de água!"
+                      : "Aviso sonoro silenciado.",
+                    "info"
+                  );
+                }}
+                className={`rounded-xl p-4 text-left border flex items-start justify-between gap-4 transition-all cursor-pointer ${
+                  reminder.soundEnabled
+                    ? "bg-[#FF6B00]/8 dark:bg-[#FF6B00]/12 border-[#FF6B00]/50"
+                    : "bg-[#F8FAFC] dark:bg-[#0B0B0D] border-[#E2E8F0] dark:border-[#26262B] hover:border-[#CBD5E1] dark:hover:border-[#3A3A42]"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      reminder.soundEnabled
+                        ? "bg-[#FF6B00] text-white"
+                        : "bg-[#E2E8F0] dark:bg-[#1C1C21] text-[#64748B] dark:text-[#A1A1AA]"
+                    }`}
+                  >
+                    {reminder.soundEnabled ? (
+                      <Volume2 className="w-5 h-5" />
+                    ) : (
+                      <VolumeX className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[#0F172A] dark:text-white">
+                      Aviso Sonoro Suave
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#475569] dark:text-[#A1A1AA] leading-relaxed">
+                      Reproduz um toque suave de gota d'água sempre que chegar o horário do lembrete.
+                    </p>
+                  </div>
+                </div>
+
+                <span
+                  className={`px-2.5 py-1 rounded-lg font-mono text-xs font-extrabold shrink-0 ${
+                    reminder.soundEnabled
+                      ? "bg-[#FF6B00] text-white"
+                      : "bg-[#E2E8F0] dark:bg-[#26262B] text-[#64748B] dark:text-[#A1A1AA]"
+                  }`}
+                >
+                  {reminder.soundEnabled ? "ATIVADO" : "DESLIGADO"}
+                </span>
+              </button>
+
+              {/* Browser Notifications Toggle Card */}
+              <button
+                type="button"
+                onClick={() => void handleToggleBrowserNotifications()}
+                className={`rounded-xl p-4 text-left border flex items-start justify-between gap-4 transition-all cursor-pointer ${
+                  reminder.browserNotificationEnabled
+                    ? "bg-emerald-500/8 dark:bg-emerald-500/12 border-emerald-500/50"
+                    : "bg-[#F8FAFC] dark:bg-[#0B0B0D] border-[#E2E8F0] dark:border-[#26262B] hover:border-[#CBD5E1] dark:hover:border-[#3A3A42]"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      reminder.browserNotificationEnabled
+                        ? "bg-emerald-500 text-white"
+                        : "bg-[#E2E8F0] dark:bg-[#1C1C21] text-[#64748B] dark:text-[#A1A1AA]"
+                    }`}
+                  >
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[#0F172A] dark:text-white">
+                      Notificações do Navegador
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#475569] dark:text-[#A1A1AA] leading-relaxed">
+                      Envia um alerta nativo no dispositivo mesmo quando você estiver em outra aba.
+                    </p>
+                    <p className="mt-1.5 text-[11px] font-mono text-[#64748B] dark:text-[#A1A1AA]">
+                      Status:{" "}
+                      {browserPermission === "granted"
+                        ? "Permissão concedida"
+                        : browserPermission === "denied"
+                        ? "Bloqueado no navegador"
+                        : browserPermission === "unsupported"
+                        ? "Indisponível neste navegador"
+                        : "Aguardando permissão"}
+                    </p>
+                  </div>
+                </div>
+
+                <span
+                  className={`px-2.5 py-1 rounded-lg font-mono text-xs font-extrabold shrink-0 ${
+                    reminder.browserNotificationEnabled
+                      ? "bg-emerald-500 text-white"
+                      : "bg-[#E2E8F0] dark:bg-[#26262B] text-[#64748B] dark:text-[#A1A1AA]"
+                  }`}
+                >
+                  {reminder.browserNotificationEnabled ? "ATIVADO" : "DESLIGADO"}
+                </span>
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* ABA: PERFIL & AVALIAÇÃO FÍSICA */}
+      {activeSubTab === "geral" && (
+        <div role="tabpanel" aria-label="Perfil e Avaliação Física" className="space-y-6">
       {/* 1B. APARÊNCIA & TEMA */}
       <section
         aria-label="Aparência e tema do aplicativo"
@@ -971,6 +1554,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           )}
         </div>
       </section>
+        </div>
+      )}
 
       {/* In-App Confirmation Modal for Reset */}
       {showResetModal && (
