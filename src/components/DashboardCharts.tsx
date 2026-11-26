@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   PolarAngleAxis,
@@ -47,6 +48,7 @@ interface DashboardChartsProps {
 
 type VolumeMetric = "volume" | "minutes";
 type BalanceChartView = "radar" | "bars";
+type WeightChartPeriod = "30d" | "90d" | "all";
 
 type MuscleAxisKey = "Costas" | "Peito" | "Pernas" | "Ombros" | "Braços" | "Core";
 
@@ -72,6 +74,18 @@ function formatDayMonth(iso: string): string {
   const parts = iso.split("-");
   if (parts.length !== 3) return iso;
   return `${parts[2]}/${parts[1]}`;
+}
+
+function formatFullDateBr(iso: string): string {
+  const parts = iso.split("-");
+  if (parts.length !== 3) return iso;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function getIsoCutoff(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return toIsoDate(d);
 }
 
 function mapMuscleGroupToAxis(group: MuscleGroupId): MuscleAxisKey {
@@ -156,6 +170,7 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
   const { isDark } = useTheme();
   const [volumeMetric, setVolumeMetric] = useState<VolumeMetric>("volume");
   const [balanceView, setBalanceView] = useState<BalanceChartView>("radar");
+  const [weightPeriod, setWeightPeriod] = useState<WeightChartPeriod>("all");
 
   const chartColors = useMemo(
     () => ({
@@ -166,6 +181,7 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
       donutStroke: isDark ? "#151518" : "#FFFFFF",
       refLabelFill: isDark ? "#FDBA74" : "#EA580C",
       fatColor: isDark ? "#71717A" : "#64748B",
+      metaStroke: isDark ? "#71717A" : "#94A3B8",
       tooltipStyle: {
         backgroundColor: isDark ? "#0B0B0D" : "#FFFFFF",
         border: isDark ? "1px solid #26262B" : "1px solid #E2E8F0",
@@ -182,49 +198,69 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
     [isDark]
   );
 
-  // 1. Weight Evolution vs Target Data (AreaChart)
+  // 1. Weight Evolution Over Time Data (Recharts LineChart based on collected measurements)
   const weightChart = useMemo(() => {
     const sorted = [...state.measurements].sort((a, b) =>
       a.date.localeCompare(b.date)
     );
-    const targetKg = state.profile.targetWeightKg;
-    const currentKg =
-      sorted.length > 0 ? sorted[sorted.length - 1].weightKg : state.profile.weightKg;
+    const targetKg = Number(state.profile.targetWeightKg.toFixed(1));
 
-    if (sorted.length >= 2) {
-      const points = sorted.slice(-12).map((m) => ({
-        label: formatDayMonth(m.date),
-        fullDate: m.date,
-        peso: Number(m.weightKg.toFixed(1)),
-      }));
-      const vals = [...points.map((p) => p.peso), targetKg];
-      const minVal = Math.floor(Math.min(...vals) - 1.5);
-      const maxVal = Math.ceil(Math.max(...vals) + 1.5);
-      return { isPreview: false, data: points, targetKg, minVal, maxVal };
-    }
+    const filtered =
+      weightPeriod === "all"
+        ? sorted
+        : (() => {
+            const cutoff = getIsoCutoff(weightPeriod === "30d" ? 30 : 90);
+            const within = sorted.filter((m) => m.date >= cutoff);
+            return within.length > 0 ? within : sorted;
+          })();
 
-    // Elegant demo baseline curving toward user's real current weight when < 2 logs exist
-    const losing = targetKg < currentKg;
-    const step = losing ? 0.5 : -0.4;
-    const now = new Date();
-    const offsets = [28, 21, 14, 7, 0];
-    const demoPoints = offsets.map((daysAgo, idx) => {
-      const d = new Date(now);
-      d.setDate(d.getDate() - daysAgo);
-      const remainingSteps = offsets.length - 1 - idx;
-      const simulated = Number((currentKg + remainingSteps * step).toFixed(1));
-      const iso = toIsoDate(d);
+    const hasRealMeasurements = sorted.length > 0;
+    const source = hasRealMeasurements
+      ? filtered
+      : [
+          {
+            id: "profile_baseline",
+            date: toIsoDate(new Date()),
+            weightKg: state.profile.weightKg,
+          },
+        ];
+
+    const startWeight = source[0]?.weightKg ?? state.profile.weightKg;
+    const points = source.map((m, idx) => {
+      const peso = Number(m.weightKg.toFixed(1));
+      const prevWeight = idx > 0 ? source[idx - 1].weightKg : m.weightKg;
+      const deltaPrev = Number((m.weightKg - prevWeight).toFixed(1));
+      const deltaStart = Number((m.weightKg - startWeight).toFixed(1));
       return {
-        label: formatDayMonth(iso),
-        fullDate: iso,
-        peso: simulated,
+        label: formatDayMonth(m.date),
+        fullDate:
+          m.id === "profile_baseline"
+            ? `${formatFullDateBr(m.date)} (Peso inicial do perfil)`
+            : formatFullDateBr(m.date),
+        peso,
+        meta: targetKg,
+        deltaPrev,
+        deltaStart,
       };
     });
-    const vals = [...demoPoints.map((p) => p.peso), targetKg];
-    const minVal = Math.floor(Math.min(...vals) - 1.5);
+
+    const latestKg = points[points.length - 1]?.peso ?? state.profile.weightKg;
+    const periodDelta = Number((latestKg - startWeight).toFixed(1));
+    const vals = [...points.map((p) => p.peso), targetKg];
+    const minVal = Math.max(0, Math.floor(Math.min(...vals) - 1.5));
     const maxVal = Math.ceil(Math.max(...vals) + 1.5);
-    return { isPreview: true, data: demoPoints, targetKg, minVal, maxVal };
-  }, [state.measurements, state.profile.weightKg, state.profile.targetWeightKg]);
+
+    return {
+      hasRealMeasurements,
+      totalCount: sorted.length,
+      data: points,
+      latestKg,
+      periodDelta,
+      targetKg,
+      minVal,
+      maxVal,
+    };
+  }, [state.measurements, state.profile.weightKg, state.profile.targetWeightKg, weightPeriod]);
 
   // 2. Last 7 Days Workout Frequency & Volume Data (BarChart)
   const weeklyBarChart = useMemo(() => {
@@ -407,7 +443,7 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
       aria-label="Análise gráfica de desempenho e nutrição"
       className="grid grid-cols-1 lg:grid-cols-2 gap-5"
     >
-      {/* CHART 1: AreaChart — Evolução de Peso vs. Meta */}
+      {/* CHART 1: LineChart — Evolução de Peso ao Longo do Tempo */}
       <motion.article
         variants={chartCardVariants}
         whileHover={{ y: -2 }}
@@ -418,45 +454,85 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#FF6B00]/65 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"
         />
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-xs text-[#475569] dark:text-[#A1A1AA]">
               <Scale className="w-3.5 h-3.5 text-[#FF6B00]" />
               <span className="font-semibold text-[#FF6B00]">Evolução corporal</span>
-              {weightChart.isPreview && (
+              <span aria-hidden="true">·</span>
+              <span className="font-mono tabular-nums">
+                Atual: {weightChart.latestKg.toFixed(1)} kg
+              </span>
+              {weightChart.data.length >= 2 && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span>Prévia ilustrativa</span>
+                  <span
+                    className={`font-mono font-semibold tabular-nums ${
+                      weightChart.periodDelta <= 0
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-[#FF6B00]"
+                    }`}
+                  >
+                    {weightChart.periodDelta > 0
+                      ? `+${weightChart.periodDelta.toFixed(1)}`
+                      : weightChart.periodDelta.toFixed(1)}{" "}
+                    kg
+                  </span>
                 </>
               )}
             </div>
             <h3 className="mt-1 text-base sm:text-lg font-bold text-[#0F172A] dark:text-white">
-              Peso atual vs. Peso meta
+              Evolução do peso ao longo do tempo
             </h3>
           </div>
 
-          <div className="text-right shrink-0">
-            <span className="block text-[11px] text-[#475569] dark:text-[#A1A1AA]">
-              Meta definida
-            </span>
-            <span className="font-mono text-sm font-bold tabular-nums text-[#FF6B00]">
-              {weightChart.targetKg.toFixed(1)} kg
-            </span>
+          <div
+            role="tablist"
+            aria-label="Filtrar período da evolução de peso"
+            className="inline-flex items-center gap-1 p-1 rounded-xl bg-[#F1F5F9] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B]"
+          >
+            {(
+              [
+                { id: "30d", label: "30d" },
+                { id: "90d", label: "90d" },
+                { id: "all", label: "Tudo" },
+              ] as { id: WeightChartPeriod; label: string }[]
+            ).map((period) => {
+              const active = weightPeriod === period.id;
+              return (
+                <button
+                  key={period.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setWeightPeriod(period.id)}
+                  className={`relative min-h-[30px] px-2.5 rounded-lg text-[11px] font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                    active
+                      ? "text-white"
+                      : "text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white"
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="bianco-chart-weight-period-pill"
+                      transition={NAV_SPRING}
+                      aria-hidden="true"
+                      className="absolute inset-0 rounded-lg bg-[#FF6B00]"
+                    />
+                  )}
+                  <span className="relative z-10">{period.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className="mt-4 h-[230px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
+            <LineChart
               data={weightChart.data}
-              margin={{ top: 14, right: 12, left: 0, bottom: 0 }}
+              margin={{ top: 12, right: 14, left: 0, bottom: 2 }}
             >
-              <defs>
-                <linearGradient id="biancoWeightGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FF6B00" stopOpacity={0.38} />
-                  <stop offset="95%" stopColor="#FF6B00" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
               <CartesianGrid
                 stroke={chartColors.gridStroke}
                 strokeDasharray="3 3"
@@ -467,10 +543,10 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
                 stroke={chartColors.axisStroke}
                 tick={{ fill: chartColors.tickFill, fontSize: 11 }}
                 tickLine={false}
-                axisLine={false}
+                axisLine={{ stroke: chartColors.gridStroke }}
               />
               <YAxis
-                width={46}
+                width={48}
                 domain={[weightChart.minVal, weightChart.maxVal]}
                 stroke={chartColors.axisStroke}
                 tick={{ fill: chartColors.tickFill, fontSize: 11 }}
@@ -481,48 +557,90 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
               <Tooltip
                 contentStyle={chartColors.tooltipStyle}
                 labelStyle={chartColors.tooltipLabelStyle}
-                formatter={(value: unknown) => {
+                labelFormatter={(_, payload) => {
+                  const row = payload?.[0]?.payload;
+                  if (!row) return "";
+                  const deltaLabel =
+                    row.deltaPrev === 0
+                      ? ""
+                      : ` (${row.deltaPrev > 0 ? "+" : ""}${row.deltaPrev.toFixed(1)} kg vs anterior)`;
+                  return `${row.fullDate}${deltaLabel}`;
+                }}
+                formatter={(value: unknown, name: unknown) => {
                   const kg = Number(value);
+                  if (!Number.isFinite(kg)) return ["—", String(name)];
+                  if (name === "meta") {
+                    return [`${kg.toFixed(1)} kg`, "Peso Meta"];
+                  }
                   const diff = Number((kg - weightChart.targetKg).toFixed(1));
                   const diffText =
-                    diff === 0
+                    Math.abs(diff) < 0.05
                       ? "Na meta!"
                       : diff > 0
-                      ? `+${diff} kg da meta`
-                      : `${diff} kg da meta`;
-                  return [`${kg.toFixed(1)} kg (${diffText})`, "Peso"];
+                      ? `+${diff.toFixed(1)} kg da meta`
+                      : `${diff.toFixed(1)} kg da meta`;
+                  return [`${kg.toFixed(1)} kg (${diffText})`, "Peso Registrado"];
                 }}
+              />
+              <Legend
+                verticalAlign="top"
+                height={26}
+                iconType="circle"
+                formatter={(value) => (
+                  <span className="text-[11px] font-semibold text-[#334155] dark:text-[#D4D4D8]">
+                    {value === "meta"
+                      ? `Meta (${weightChart.targetKg.toFixed(1)} kg)`
+                      : "Peso registrado (kg)"}
+                  </span>
+                )}
               />
               <ReferenceLine
                 y={weightChart.targetKg}
                 stroke="#F97316"
                 strokeDasharray="5 5"
                 strokeWidth={1.5}
-                label={{
-                  value: `Meta ${weightChart.targetKg} kg`,
-                  position: "insideTopRight",
-                  fill: chartColors.refLabelFill,
-                  fontSize: 11,
-                }}
+                strokeOpacity={0.75}
               />
-              <Area
+              <Line
+                type="monotone"
+                dataKey="meta"
+                name="meta"
+                stroke={chartColors.metaStroke}
+                strokeWidth={1.5}
+                strokeDasharray="4 4"
+                dot={false}
+                activeDot={false}
+              />
+              <Line
                 type="monotone"
                 dataKey="peso"
+                name="peso"
                 stroke="#FF6B00"
-                strokeWidth={2.5}
-                fillOpacity={1}
-                fill="url(#biancoWeightGradient)"
-                activeDot={{ r: 5, fill: "#FF6B00", stroke: "#FFFFFF", strokeWidth: 2 }}
+                strokeWidth={2.75}
+                dot={{
+                  r: 4,
+                  fill: "#FF6B00",
+                  stroke: chartColors.donutStroke,
+                  strokeWidth: 2,
+                }}
+                activeDot={{
+                  r: 6,
+                  fill: "#FF6B00",
+                  stroke: "#FFFFFF",
+                  strokeWidth: 2,
+                }}
               />
-            </AreaChart>
+            </LineChart>
           </ResponsiveContainer>
         </div>
 
         <div className="mt-3 pt-3 border-t border-[#E2E8F0] dark:border-[#26262B] flex items-center justify-between gap-2 text-xs">
           <span className="text-[#475569] dark:text-[#A1A1AA]">
-            {weightChart.isPreview
-              ? "Registre ao menos 2 pesagens para ativar sua curva real."
-              : `${state.measurements.length} registros de avaliação no histórico.`}
+            {weightChart.totalCount === 0
+              ? "Exibindo peso do perfil. Registre pesagens para acompanhar a curva."
+              : weightChart.totalCount === 1
+              ? "1 medição registrada. Adicione novas pesagens para ver a linha de tendência."
+              : `${weightChart.totalCount} medições registradas · Meta ${weightChart.targetKg.toFixed(1)} kg`}
           </span>
           <button
             type="button"
