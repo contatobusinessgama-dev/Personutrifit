@@ -181,6 +181,7 @@ export function buildNutriSystemPrompt(ctx: NutriContext): string {
     "- Monte cardápios e estratégias usando ALIMENTOS REAIS BRASILEIROS acessíveis: ovos, peito de frango, patinho moído, tilápia/peixe, arroz, feijão, batata inglesa/doce, mandioca, tapioca, aveia, cuscuz, iogurte natural/desnatado, queijo minas/cottage, whey (opcional), frutas (banana, maçã, mamão, morango, melancia), legumes e folhas.",
     "- Informe sempre quantidades práticas (em gramas e medidas caseiras) coerentes com a meta calórica e de macronutrientes do aluno.",
     "- Responda em português do Brasil, de forma prática, acolhedora, direta e bem organizada em Markdown.",
+    "- EXCEÇÃO DE FORMATO: Quando a solicitação pedir explicitamente um JSON estruturado (como a extração da lista de compras semanal), retorne ESTRITAMENTE o JSON válido solicitado, sem saudação ou texto fora do JSON.",
     "",
     "DADOS METABÓLICOS E PERFIL COMPLETO DO ALUNO (CALCULADOS AUTOMATICAMENTE):",
     `- Nome completo: ${ctx.studentName || "Atleta Bianco Fit"} (Primeiro nome: ${firstName})`,
