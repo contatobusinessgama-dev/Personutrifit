@@ -23,6 +23,13 @@ import { AdminPortalPage } from "./components/AdminPortalPage";
 import { AdminTab } from "./components/AdminTab";
 import { DashboardTab } from "./components/DashboardTab";
 import { EvolutionTab } from "./components/EvolutionTab";
+import {
+  HYDRATION_AVATAR_IMAGE_URL,
+  HydrationMascotBadge,
+  WATER_AVATAR_AUTO_DISMISS_MS,
+  WaterReminderAvatarAlert,
+  WaterReminderAvatarPopup,
+} from "./components/HydrationAvatar";
 import { LandingPage } from "./components/LandingPage";
 import { NutriAiTab } from "./components/NutriAiTab";
 import { OnboardingFlow } from "./components/OnboardingFlow";
@@ -495,6 +502,36 @@ export default function App() {
     resetAllData,
   } = useBiancoState(handleAchievementUnlocked);
 
+  const [waterAvatarAlert, setWaterAvatarAlert] =
+    useState<WaterReminderAvatarAlert | null>(null);
+  const waterAvatarTimeoutRef = useRef<number | null>(null);
+
+  const dismissWaterAvatarAlert = useCallback(() => {
+    if (waterAvatarTimeoutRef.current !== null) {
+      window.clearTimeout(waterAvatarTimeoutRef.current);
+      waterAvatarTimeoutRef.current = null;
+    }
+    setWaterAvatarAlert(null);
+  }, []);
+
+  const scheduleWaterAvatarDismiss = useCallback(() => {
+    if (waterAvatarTimeoutRef.current !== null) {
+      window.clearTimeout(waterAvatarTimeoutRef.current);
+    }
+    waterAvatarTimeoutRef.current = window.setTimeout(() => {
+      setWaterAvatarAlert(null);
+      waterAvatarTimeoutRef.current = null;
+    }, WATER_AVATAR_AUTO_DISMISS_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (waterAvatarTimeoutRef.current !== null) {
+        window.clearTimeout(waterAvatarTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const playWaterChime = useCallback(() => {
     try {
       const AudioCtx =
@@ -532,29 +569,31 @@ export default function App() {
       const nowMs = Date.now();
       updateWaterReminder({ lastRemindedAt: nowMs });
 
-      if (state.waterReminder?.soundEnabled) {
+      const soundPlayed = Boolean(state.waterReminder?.soundEnabled);
+      if (soundPlayed) {
         playWaterChime();
       }
 
       const msg =
         remainingMl > 0
-          ? `Hora de beber água! Faltam ${(remainingMl / 1000).toFixed(
+          ? `Faltam ${(remainingMl / 1000).toFixed(
               2
             )} L para atingir sua meta de ${(metabolism.waterTargetMl / 1000).toFixed(
               2
-            )} L hoje.`
-          : `Hora de hidratar! Você já bateu sua meta de ${(
+            )} L hoje. Vamos hidratar!`
+          : `Você já bateu sua meta de ${(
               metabolism.waterTargetMl / 1000
-            ).toFixed(2)} L hoje — mantenha o ritmo!`;
+            ).toFixed(2)} L hoje — excelente ritmo, continue assim!`;
 
-      addToast(msg, "info", {
-        actionLabel: "+250ml agora",
-        durationMs: 11000,
-        onAction: () => {
-          addWater(250);
-          addToast("+250 ml de água registrados!", "success");
-        },
+      setWaterAvatarAlert({
+        id: nowMs,
+        message: msg,
+        consumedMl: state.water.consumedMl,
+        targetMl: metabolism.waterTargetMl,
+        remainingMl,
+        soundPlayed,
       });
+      scheduleWaterAvatarDismiss();
 
       if (
         (state.waterReminder?.browserNotificationEnabled || isManualTest) &&
@@ -564,7 +603,8 @@ export default function App() {
       ) {
         try {
           new Notification("Lembrete de Hidratação · Personal Nutri Fit", {
-            body: msg,
+            body: `Hora de beber água! ${msg}`,
+            icon: HYDRATION_AVATAR_IMAGE_URL,
           });
         } catch {
           // Ignore browser notification errors in restricted contexts
@@ -578,10 +618,26 @@ export default function App() {
       state.waterReminder?.browserNotificationEnabled,
       updateWaterReminder,
       playWaterChime,
-      addToast,
-      addWater,
+      scheduleWaterAvatarDismiss,
     ]
   );
+
+  const handleDrinkFromWaterAvatar = useCallback(
+    (ml: number) => {
+      addWater(ml);
+      dismissWaterAvatarAlert();
+      addToast(`+${ml} ml de água registrados!`, "success");
+    },
+    [addWater, dismissWaterAvatarAlert, addToast]
+  );
+
+  const handleReplayWaterAvatarSound = useCallback(() => {
+    playWaterChime();
+    setWaterAvatarAlert((prev) =>
+      prev ? { ...prev, id: Date.now(), soundPlayed: true } : prev
+    );
+    scheduleWaterAvatarDismiss();
+  }, [playWaterChime, scheduleWaterAvatarDismiss]);
 
   // Automatic Background Water Reminder Checker (runs every 30s while logged in)
   useEffect(() => {
@@ -1075,8 +1131,13 @@ export default function App() {
                 </span>
               </div>
               <div className="flex items-center justify-between pt-0.5">
-                <span className="inline-flex items-center gap-1">
-                  <Bell className="w-3 h-3 text-[#FF6B00]" />
+                <span className="inline-flex items-center gap-1.5">
+                  <HydrationMascotBadge
+                    size="xs"
+                    active={Boolean(state.waterReminder?.enabled)}
+                    onClick={() => triggerWaterReminderAlert(true)}
+                    title="Ver avatar de hidratação e testar aviso sonoro"
+                  />
                   <span>Lembrete água</span>
                 </span>
                 <button
@@ -1374,6 +1435,15 @@ export default function App() {
             setTimerVisible(false);
             setTimerRunning(false);
           }}
+        />
+
+        {/* Animated Hydration Avatar Companion (appears whenever water alert sounds) */}
+        <WaterReminderAvatarPopup
+          alert={waterAvatarAlert}
+          shiftUp={timerVisible}
+          onDrink={handleDrinkFromWaterAvatar}
+          onReplaySound={handleReplayWaterAvatarSound}
+          onDismiss={dismissWaterAvatarAlert}
         />
       </div>
     </MotionConfig>

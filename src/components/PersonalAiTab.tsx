@@ -4,7 +4,9 @@ import {
   BookmarkPlus,
   Check,
   Dumbbell,
+  MessageSquare,
   RotateCcw,
+  ScanLine,
   Send,
   Sparkles,
   Square,
@@ -28,7 +30,10 @@ import {
   isAbortedAiError,
 } from "../services/geminiService";
 import { AiStreamingFooter, AiTypingIndicator } from "./AiTypingIndicator";
+import { PostureCorrectorPanel } from "./PostureCorrectorPanel";
 import { getFirstName } from "../utils/metabolism";
+
+type PersonalSubSection = "chat" | "postura";
 
 const MUSCLE_TODAY_OPTIONS = [
   "Costas + Bíceps",
@@ -83,6 +88,8 @@ export const PersonalAiTab: React.FC<PersonalAiTabProps> = ({
   onNavigateTab,
   onToast,
 }) => {
+  const [activeSubSection, setActiveSubSection] =
+    useState<PersonalSubSection>("chat");
   const [input, setInput] = useState("");
   const [loadingPhase, setLoadingPhase] = useState<AiLoadingPhase>("idle");
   const [retryInfo, setRetryInfo] = useState<AiRetryInfo | null>(null);
@@ -295,6 +302,13 @@ export const PersonalAiTab: React.FC<PersonalAiTabProps> = ({
     onToast("Histórico do Personal IA limpo.", "info");
   };
 
+  const handleAskAiForPosture = (prompt: string) => {
+    setActiveSubSection("chat");
+    window.setTimeout(() => {
+      void sendMessage(prompt);
+    }, 60);
+  };
+
   return (
     <div className="space-y-5 pb-20 md:pb-8">
       {/* Header */}
@@ -308,16 +322,67 @@ export const PersonalAiTab: React.FC<PersonalAiTabProps> = ({
             Personal Trainer IA
           </h1>
         </div>
+        {activeSubSection === "chat" && (
+          <button
+            type="button"
+            onClick={handleResetChat}
+            className="min-h-[40px] px-3.5 rounded-xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] hover:border-[#CBD5E1] dark:hover:border-[#3A3A42] shadow-xs dark:shadow-none text-xs font-medium text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Limpar chat</span>
+          </button>
+        )}
+      </div>
+
+      {/* Sub-section Switcher: Chat Personal IA | Corretor de Postura */}
+      <div
+        role="tablist"
+        aria-label="Sub-seções do Personal IA"
+        className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1.5 rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B]"
+      >
         <button
           type="button"
-          onClick={handleResetChat}
-          className="min-h-[40px] px-3.5 rounded-xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] hover:border-[#CBD5E1] dark:hover:border-[#3A3A42] shadow-xs dark:shadow-none text-xs font-medium text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+          role="tab"
+          aria-selected={activeSubSection === "chat"}
+          onClick={() => setActiveSubSection("chat")}
+          className={`min-h-[46px] px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap ${
+            activeSubSection === "chat"
+              ? "bg-[#FF6B00] text-white"
+              : "text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white hover:bg-[#F8FAFC] dark:hover:bg-[#1C1C21]"
+          }`}
         >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Limpar chat</span>
+          <MessageSquare className="w-4 h-4 shrink-0" />
+          <span>Chat & Prescrição Personal IA</span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSubSection === "postura"}
+          onClick={() => setActiveSubSection("postura")}
+          className={`min-h-[46px] px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer whitespace-nowrap ${
+            activeSubSection === "postura"
+              ? "bg-[#FF6B00] text-white"
+              : "text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white hover:bg-[#F8FAFC] dark:hover:bg-[#1C1C21]"
+          }`}
+        >
+          <ScanLine className="w-4 h-4 shrink-0" />
+          <span>Corretor de Postura</span>
         </button>
       </div>
 
+      {/* SUB-SEÇÃO: CORRETOR DE POSTURA */}
+      {activeSubSection === "postura" && (
+        <PostureCorrectorPanel
+          state={state}
+          onAskAiForPosture={handleAskAiForPosture}
+          onNavigateTab={onNavigateTab}
+        />
+      )}
+
+      {/* SUB-SEÇÃO: CHAT PERSONAL IA */}
+      {activeSubSection === "chat" && (
+        <>
       {/* Top Context Control Panel */}
       <section
         aria-label="Contexto do treino de hoje"
@@ -583,6 +648,8 @@ export const PersonalAiTab: React.FC<PersonalAiTabProps> = ({
           )}
         </form>
       </section>
+        </>
+      )}
     </div>
   );
 };

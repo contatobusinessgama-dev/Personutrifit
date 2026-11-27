@@ -35,6 +35,7 @@ import {
 } from "../types";
 import { compressAvatarFile } from "../utils/avatarUpload";
 import { AVATAR_PRESETS, frequencyToActivityLevel } from "../utils/metabolism";
+import { HydrationMascotBadge } from "./HydrationAvatar";
 import { PWAInstallButton } from "./PWAInstallButton";
 import { StudentAvatar } from "./StudentAvatar";
 import { ThemeSegmentedControl } from "./ErrorBoundary";
@@ -624,9 +625,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <section className="rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] shadow-sm dark:shadow-none p-5 sm:p-6 space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-[#FF6B00]/12 dark:bg-[#FF6B00]/15 border border-[#FF6B00]/30 flex items-center justify-center shrink-0">
-                  <Droplets className="w-5 h-5 text-[#FF6B00]" />
-                </div>
+                <HydrationMascotBadge
+                  size="lg"
+                  active={reminder.enabled}
+                  onClick={onTriggerWaterReminderTest}
+                  title="Clique para ver o avatar e testar o aviso sonoro"
+                />
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-lg font-extrabold text-[#0F172A] dark:text-white">
@@ -643,7 +647,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-[#475569] dark:text-[#A1A1AA]">
-                    Personalize seus horários, frequência e alertas. As alterações são salvas automaticamente e sincronizadas com o Dashboard.
+                    Personalize seus horários, frequência e alertas. O avatar de hidratação aparece automaticamente na tela sempre que o aviso sonoro tocar.
                   </p>
                 </div>
               </div>

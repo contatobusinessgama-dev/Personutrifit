@@ -43,6 +43,7 @@ import {
   kpiCardVariants,
   kpiGridVariants,
 } from "../utils/motion";
+import { HydrationMascotBadge } from "./HydrationAvatar";
 import { AchievementsFeed } from "./AchievementsFeed";
 import { DashboardCharts } from "./DashboardCharts";
 import { GoalSelector } from "./GoalSelector";
@@ -966,9 +967,12 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#FF6B00]/12 dark:bg-[#FF6B00]/15 border border-[#FF6B00]/30 flex items-center justify-center shrink-0">
-              <Droplets className="w-5 h-5 text-[#FF6B00]" />
-            </div>
+            <HydrationMascotBadge
+              size="md"
+              active={reminder.enabled}
+              onClick={onTriggerWaterReminderTest}
+              title="Clique para ver o avatar e testar o aviso sonoro"
+            />
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-sm sm:text-base font-extrabold text-[#0F172A] dark:text-white">
