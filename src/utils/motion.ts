@@ -22,11 +22,12 @@ export const CARD_HOVER_TRANSITION: Transition = {
 export const TAB_ORDER: Record<TabId, number> = {
   inicio: 0,
   treinos: 1,
-  personal: 2,
-  nutri: 3,
-  evolucao: 4,
-  perfil: 5,
-  admin: 6,
+  biblioteca: 2,
+  personal: 3,
+  nutri: 4,
+  evolucao: 5,
+  perfil: 6,
+  admin: 7,
 };
 
 export const tabPanelVariants: Variants = {

@@ -159,6 +159,7 @@ export function buildPersonalSystemPrompt(ctx: PersonalContext): string {
     `3. CARDIO PÓS-TREINO OBRIGATÓRIO CONFORME O OBJETIVO PRINCIPAL (${ctx.primaryGoal}): indique sempre o aparelho de cardio ideal na academia (esteira inclinada, simulador de escada, bike ou elíptico), duração exata em minutos, zona de intensidade, protocolo de velocidade/inclinação/carga e estimativa de gasto calórico.`,
     `4. ALONGAMENTO E MOBILIDADE FINAL OBRIGATÓRIO CONFORME O TREINO (${ctx.muscleToday}) E O OBJETIVO PRINCIPAL (${ctx.primaryGoal}): prescreva de 3 a 4 exercícios práticos de alongamento e descompressão articular pós-treino (com séries, tempo em segundos de sustentação e instrução de execução).`,
     "5. Se o aluno pedir substituição por aparelho ocupado, responda na hora com 2 opções equivalentes na academia que trabalhem o mesmo padrão motor.",
+    "6. EXCEÇÃO PARA DICAS TÉCNICAS DE EXERCÍCIO ÚNICO (BIBLIOTECA DE EXERCÍCIOS): quando o pedido solicitar explicitamente apenas dicas técnicas curtas para um único exercício específico, responda de forma direta e objetiva (máximo 4 a 5 tópicos curtos: biomecânica/ajuste fino, cadência/respiração, ativação muscular, erro sutil e adaptação ao perfil/restrições do aluno), SEM montar treino completo, SEM prescrever cardio pós-treino e SEM bloco de alongamento.",
   ]
     .filter(Boolean)
     .join("\n");

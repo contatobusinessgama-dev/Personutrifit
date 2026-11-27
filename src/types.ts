@@ -1,6 +1,7 @@
 export type TabId =
   | "inicio"
   | "treinos"
+  | "biblioteca"
   | "personal"
   | "nutri"
   | "evolucao"

@@ -3,6 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import {
   Award,
   Bell,
+  BookOpen,
   Crown,
   Droplets,
   Dumbbell,
@@ -23,6 +24,7 @@ import { AdminPortalPage } from "./components/AdminPortalPage";
 import { AdminTab } from "./components/AdminTab";
 import { DashboardTab } from "./components/DashboardTab";
 import { EvolutionTab } from "./components/EvolutionTab";
+import { ExerciseLibraryTab } from "./components/ExerciseLibraryTab";
 import {
   HYDRATION_AVATAR_IMAGE_URL,
   HydrationMascotBadge,
@@ -72,7 +74,12 @@ const DESKTOP_NAV_ITEMS: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
-  ...PRIMARY_NAV_ITEMS,
+  { id: "inicio", label: "Início", icon: Home },
+  { id: "treinos", label: "Treinos", icon: Dumbbell },
+  { id: "biblioteca", label: "Biblioteca de Exercícios", icon: BookOpen },
+  { id: "personal", label: "Personal IA", icon: Sparkles },
+  { id: "nutri", label: "Nutri IA", icon: Utensils },
+  { id: "evolucao", label: "Evolução", icon: TrendingUp },
   { id: "perfil", label: "Perfil & Medidas", icon: UserIcon },
 ];
 
@@ -1223,6 +1230,24 @@ export default function App() {
 
             <button
               type="button"
+              onClick={() => handleNavigateTab("biblioteca")}
+              aria-label="Abrir Biblioteca de Exercícios"
+              className={`min-h-[38px] px-2.5 rounded-xl border text-xs font-semibold flex items-center gap-1 whitespace-nowrap cursor-pointer transition-colors ${
+                activeTab === "biblioteca"
+                  ? "bg-[#FF6B00] border-[#FF6B00] text-white"
+                  : "bg-[#F8FAFC] dark:bg-[#151518] border-[#E2E8F0] dark:border-[#26262B] text-[#0F172A] dark:text-white"
+              }`}
+            >
+              <BookOpen
+                className={`w-3.5 h-3.5 ${
+                  activeTab === "biblioteca" ? "text-white" : "text-[#FF6B00]"
+                }`}
+              />
+              <span className="hidden xs:inline">Biblioteca</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => startRestTimer(60)}
               aria-label="Abrir cronômetro de descanso"
               className="min-h-[38px] px-2.5 rounded-xl bg-[#F8FAFC] dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] text-xs font-semibold text-[#0F172A] dark:text-white flex items-center gap-1 whitespace-nowrap cursor-pointer"
@@ -1295,6 +1320,15 @@ export default function App() {
                     onDeleteWorkoutSession={deleteWorkoutSession}
                     onClearSavedPlan={clearSavedPlan}
                     onStartRest={startRestTimer}
+                    onToast={addToast}
+                  />
+                )}
+
+                {activeTab === "biblioteca" && (
+                  <ExerciseLibraryTab
+                    state={state}
+                    metabolism={metabolism}
+                    latestMeasurement={latestMeasurement}
                     onToast={addToast}
                   />
                 )}
