@@ -2,11 +2,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 const GEMINI_MODELS = [
-  "gemini-4-hydrogen",
   "gemini-3.1-flash-lite",
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
-  "gemini-flash-latest",
+  "gemini-4-hydrogen",
 ] as const;
 
 const FIRST_CHUNK_TIMEOUT_MS = 18000;
@@ -47,6 +46,7 @@ interface PersonalContext {
   muscleToday: string;
   level: string;
   availableTime: number;
+  exercisesPerWorkout?: number;
   latestMeasurements?: LatestMeasurementsContext | null;
 }
 
@@ -110,6 +110,7 @@ function buildPersonalSystemPrompt(ctx: PersonalContext): string {
     `- Medidas corporais recentes: ${formatMeasurementsLine(ctx.latestMeasurements)}`,
     `- Nível na academia: ${ctx.level} | Frequência semanal: ${ctx.weeklyFrequency ?? 4}x/semana`,
     `- Tempo disponível hoje: ${ctx.availableTime} minutos`,
+    `- Quantidade desejada de exercícios por treino: ${Math.max(6, Math.min(12, ctx.exercisesPerWorkout ?? 6))} exercícios de musculação`,
     `- O que vai malhar hoje: ${ctx.muscleToday}`,
     `- Objetivo principal: ${ctx.primaryGoal}`,
     `- Focos específicos: ${focuses}`,
@@ -117,13 +118,14 @@ function buildPersonalSystemPrompt(ctx: PersonalContext): string {
     "",
     "ESTRUTURA OBRIGATÓRIA EM TODOS OS TREINOS:",
     "1. Saudação direta usando o primeiro nome do aluno + aquecimento articular e muscular breve (3-5 min).",
-    "2. Ordem inteligente dos exercícios de musculação (multiarticulares primeiro, isoladores depois), contendo para cada exercício:",
+    `2. Prescreva EXATAMENTE ${Math.max(6, Math.min(12, ctx.exercisesPerWorkout ?? 6))} exercícios de musculação em ordem inteligente (multiarticulares primeiro, isoladores depois), contendo para cada exercício:`,
     "   - Nome do exercício e tipo de aparelho (Máquina Articulada, Polia/Cross ou Peso Livre)",
     "   - Séries x Repetições + Tempo de descanso + Orientação de carga/RPE adequada ao nível do aluno",
     "   - Dica prática de ajuste da máquina/banco/polia e postura",
     `3. CARDIO PÓS-TREINO OBRIGATÓRIO CONFORME O OBJETIVO PRINCIPAL (${ctx.primaryGoal}): indique sempre o aparelho de cardio ideal na academia (esteira inclinada, simulador de escada, bike ou elíptico), duração exata em minutos, zona de intensidade, protocolo de velocidade/inclinação/carga e estimativa de gasto calórico.`,
     `4. ALONGAMENTO E MOBILIDADE FINAL OBRIGATÓRIO CONFORME O TREINO (${ctx.muscleToday}) E O OBJETIVO PRINCIPAL (${ctx.primaryGoal}): prescreva de 3 a 4 exercícios práticos de alongamento e descompressão articular pós-treino (com séries, tempo em segundos de sustentação e instrução de execução).`,
     "5. Se o aluno pedir substituição por aparelho ocupado, responda na hora com 2 opções equivalentes na academia que trabalhem o mesmo padrão motor.",
+    "6. EXCEÇÃO PARA DICAS TÉCNICAS DE EXERCÍCIO ÚNICO (BIBLIOTECA DE EXERCÍCIOS): quando o pedido solicitar explicitamente apenas dicas técnicas curtas para um único exercício específico, responda de forma direta e objetiva (máximo 4 a 5 tópicos curtos), SEM montar treino completo, SEM prescrever cardio pós-treino e SEM bloco de alongamento.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -448,7 +450,8 @@ export default async function handler(
         errLower.includes("unauthenticated") ||
         errLower.includes("unauthorized");
       const willRetry = !emitted && !isAuthErr && i < modelsToTry.length - 1;
-      console.error("[Bianco Fit Personal IA Model Attempt Error]", {
+      const logFn = willRetry ? console.warn : console.error;
+      logFn("[Bianco Fit Personal IA Model Attempt Error]", {
         timestamp: new Date().toISOString(),
         endpoint: "/api/ai/personal",
         model: candidate,
@@ -456,7 +459,7 @@ export default async function handler(
         emittedAnyChunk: emitted,
         durationMs: Date.now() - modelStartedAt,
         rawMessage: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
+        ...(willRetry ? {} : { stack: err instanceof Error ? err.stack : undefined }),
       });
       if (willRetry) {
         continue;

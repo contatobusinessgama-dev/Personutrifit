@@ -126,6 +126,7 @@ export interface StudentProfile {
   level: TrainingLevel;
   weeklyFrequency: WeeklyFrequency;
   availableTime: 30 | 45 | 60 | 90;
+  exercisesPerWorkout?: number;
   muscleToday: string;
   avatar: string; // preset ID (e.g. "preset:orange") or compressed data URL / photo URL
   onboardingCompleted: boolean;

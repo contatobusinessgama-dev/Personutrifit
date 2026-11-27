@@ -6,11 +6,10 @@ import { ChatMessage } from "../types";
  * currently supported Flash/Hydrogen models.
  */
 export const GEMINI_FALLBACK_MODELS = [
-  "gemini-4-hydrogen",
   "gemini-3.1-flash-lite",
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
-  "gemini-flash-latest",
+  "gemini-4-hydrogen",
 ] as const;
 
 export type GeminiFallbackModel = (typeof GEMINI_FALLBACK_MODELS)[number];

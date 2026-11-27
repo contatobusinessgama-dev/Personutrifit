@@ -11,11 +11,10 @@ import {
  * model-not-found (404), transient server errors (500/503/504), or stall timeouts.
  */
 export const GEMINI_MODELS = [
-  "gemini-4-hydrogen",
   "gemini-3.1-flash-lite",
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
-  "gemini-flash-latest",
+  "gemini-4-hydrogen",
 ] as const;
 
 export type GeminiModelName = (typeof GEMINI_MODELS)[number];
@@ -187,7 +186,11 @@ function logServerAiError(details: {
   err: unknown;
 }) {
   const meta = extractErrorMeta(details.err);
-  console.error("[Bianco Fit AI Server Error]", {
+  const isRecoverableRetry =
+    details.stage === "generate_fallback_retry" ||
+    details.stage === "stream_fallback_retry";
+
+  const payload = {
     timestamp: new Date().toISOString(),
     stage: details.stage,
     endpoint: details.endpoint || "server/gemini",
@@ -199,8 +202,14 @@ function logServerAiError(details: {
     durationMs: details.durationMs,
     errorName: meta.name,
     rawMessage: meta.rawMessage,
-    stack: meta.stack,
-  });
+    ...(isRecoverableRetry ? {} : { stack: meta.stack }),
+  };
+
+  if (isRecoverableRetry) {
+    console.warn("[Bianco Fit AI Fallback Retry]", payload);
+  } else {
+    console.error("[Bianco Fit AI Server Error]", payload);
+  }
 }
 
 /**

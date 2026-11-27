@@ -49,6 +49,7 @@ const MUSCLE_TODAY_OPTIONS = [
 
 const LEVEL_OPTIONS: TrainingLevel[] = ["Iniciante", "Intermediário", "Avançado"];
 const TIME_OPTIONS: (30 | 45 | 60 | 90)[] = [30, 45, 60, 90];
+const EXERCISE_COUNT_OPTIONS = [6, 7, 8, 9, 10, 12] as const;
 
 const QUICK_PROMPTS = [
   "Exercícios para lombar e dor no joelho (fortalecimento sem impacto)",
@@ -183,6 +184,7 @@ export const PersonalAiTab: React.FC<PersonalAiTabProps> = ({
           muscleToday: state.profile.muscleToday,
           level: state.profile.level,
           availableTime: state.profile.availableTime,
+          exercisesPerWorkout: state.profile.exercisesPerWorkout ?? 6,
           latestMeasurements: latestMeasurement
             ? {
                 date: latestMeasurement.date,
@@ -405,7 +407,7 @@ export const PersonalAiTab: React.FC<PersonalAiTabProps> = ({
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {/* O que vai malhar hoje */}
           <div>
             <label
@@ -472,6 +474,32 @@ export const PersonalAiTab: React.FC<PersonalAiTabProps> = ({
                     }`}
                   >
                     {mins}m
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Exercícios por treino */}
+          <div>
+            <span className="block text-xs font-medium text-[#475569] dark:text-[#A1A1AA] mb-1.5">
+              Exercícios por treino
+            </span>
+            <div className="grid grid-cols-6 gap-1">
+              {EXERCISE_COUNT_OPTIONS.map((count) => {
+                const active = (state.profile.exercisesPerWorkout ?? 6) === count;
+                return (
+                  <button
+                    key={count}
+                    type="button"
+                    onClick={() => onUpdateProfile({ exercisesPerWorkout: count })}
+                    className={`min-h-[44px] rounded-xl font-mono text-xs font-semibold tabular-nums border transition-colors cursor-pointer ${
+                      active
+                        ? "bg-[#FF6B00] border-[#FF6B00] text-white"
+                        : "bg-[#F8FAFC] dark:bg-[#0B0B0D] border-[#E2E8F0] dark:border-[#26262B] text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white"
+                    }`}
+                  >
+                    {count}
                   </button>
                 );
               })}

@@ -34,6 +34,7 @@ export interface PersonalContext {
   muscleToday: string;
   level: string;
   availableTime: number;
+  exercisesPerWorkout?: number;
   latestMeasurements?: LatestMeasurementsContext | null;
 }
 
@@ -145,6 +146,7 @@ export function buildPersonalSystemPrompt(ctx: PersonalContext): string {
     `- Medidas corporais recentes: ${formatMeasurementsLine(ctx.latestMeasurements)}`,
     `- Nível na academia: ${ctx.level} | Frequência semanal: ${ctx.weeklyFrequency ?? 4}x/semana`,
     `- Tempo disponível hoje: ${ctx.availableTime} minutos`,
+    `- Quantidade desejada de exercícios por treino: ${Math.max(6, Math.min(12, ctx.exercisesPerWorkout ?? 6))} exercícios de musculação`,
     `- O que vai malhar hoje: ${ctx.muscleToday}`,
     `- Objetivo principal: ${ctx.primaryGoal}`,
     `- Focos específicos: ${focuses}`,
@@ -152,7 +154,7 @@ export function buildPersonalSystemPrompt(ctx: PersonalContext): string {
     "",
     "ESTRUTURA OBRIGATÓRIA EM TODOS OS TREINOS:",
     "1. Saudação direta usando o primeiro nome do aluno + aquecimento articular e muscular breve (3-5 min).",
-    "2. Ordem inteligente dos exercícios de musculação (multiarticulares primeiro, isoladores depois), contendo para cada exercício:",
+    `2. Prescreva EXATAMENTE ${Math.max(6, Math.min(12, ctx.exercisesPerWorkout ?? 6))} exercícios de musculação em ordem inteligente (multiarticulares primeiro, isoladores depois), contendo para cada exercício:`,
     "   - Nome do exercício e tipo de aparelho (Máquina Articulada, Polia/Cross ou Peso Livre)",
     "   - Séries x Repetições + Tempo de descanso + Orientação de carga/RPE adequada ao nível do aluno",
     "   - Dica prática de ajuste da máquina/banco/polia e postura",

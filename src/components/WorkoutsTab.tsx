@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Flame,
   Info,
+  Minus,
   Pause,
   Play,
   Plus,
@@ -40,6 +41,7 @@ import {
   GymModality,
   MuscleGroupId,
   StudentGoals,
+  StudentProfile,
 } from "../types";
 import { ExerciseCard } from "./ExerciseCard";
 import { ExerciseVisual } from "./ExerciseVisual";
@@ -48,6 +50,89 @@ import { GoalSelector } from "./GoalSelector";
 const CARDIO_BANNER = "/src/assets/images/bianco_cardio_zone_1795053836665.jpg";
 
 type SubTab = "combos" | "grupamentos" | "modalidades";
+
+const EXERCISE_COUNT_PRESETS = [6, 7, 8, 9, 10, 12] as const;
+const CUSTOM_EXTRAS_STORAGE_KEY = "personal_nutri_fit_custom_combo_extras_v1";
+
+const COMBO_EXTRA_POOL: Record<string, string[]> = {
+  costas_biceps: [
+    "remada_curvada_halteres",
+    "barra_fixa_graviton",
+    "rosca_alternada",
+    "abdominal_supra_polia",
+    "prancha_isometrica",
+    "hiperextensao_lombar_banco",
+  ],
+  peito_triceps: [
+    "flexao_braco",
+    "triceps_testa",
+    "desenvolvimento_maquina",
+    "elevacao_lateral",
+    "elevacao_frontal",
+    "abdominal_supra_polia",
+    "prancha_isometrica",
+  ],
+  pernas_completo: [
+    "agachamento_smith",
+    "afundo_halteres",
+    "cadeira_flexora",
+    "elevacao_pelvica",
+    "cadeira_abdutora",
+    "abdominal_infra_paralela",
+  ],
+  gluteos_posterior: [
+    "afundo_halteres",
+    "leg_press_45",
+    "ponte_gluteos_lombar",
+    "agachamento_smith",
+    "panturrilha_sentado_maquina",
+    "prancha_isometrica",
+  ],
+  ombros_abdomen: [
+    "crucifixo_inverso",
+    "triceps_pulley_corda",
+    "rosca_alternada",
+    "pulldown_polia",
+    "flexao_braco",
+    "perdigueiro_estabilizacao",
+  ],
+  superiores_completo: [
+    "remada_articulada_maquina",
+    "supino_inclinado_halteres",
+    "peck_deck",
+    "desenvolvimento_maquina",
+    "rosca_direta_barra_w",
+    "triceps_frances",
+  ],
+  full_body_queima: [
+    "cadeira_extensora",
+    "mesa_flexora",
+    "remada_baixa_triangulo",
+    "elevacao_lateral",
+    "triceps_pulley_corda",
+    "abdominal_supra_polia",
+  ],
+  lombar_joelho: [
+    "gluteo_polia",
+    "mesa_flexora",
+    "panturrilha_sentado_maquina",
+    "prancha_isometrica",
+    "remada_baixa_triangulo",
+    "hiperextensao_lombar_banco",
+  ],
+};
+
+function loadCustomComboExtras(): Record<string, string[]> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_EXTRAS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, string[]>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
 
 interface CardioEquipmentOption {
   id: string;
@@ -133,6 +218,7 @@ interface WorkoutsTabProps {
   state: BiancoAppState;
   initialSubTab?: SubTab;
   onUpdateGoals: (patch: Partial<StudentGoals>) => void;
+  onUpdateProfile?: (patch: Partial<StudentProfile>) => void;
   onSelectCombo: (comboId: string) => void;
   onUpdateExerciseLog: (exerciseId: string, patch: Partial<ExerciseLogEntry>) => void;
   onToggleSet: (exerciseId: string, setIndex: number) => boolean;
@@ -155,6 +241,7 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   state,
   initialSubTab = "combos",
   onUpdateGoals,
+  onUpdateProfile,
   onSelectCombo,
   onUpdateExerciseLog,
   onToggleSet,
@@ -177,6 +264,48 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   const [finishBanner, setFinishBanner] = useState<string | null>(null);
   const [cardioImgErr, setCardioImgErr] = useState(false);
   const [loggedModalityId, setLoggedModalityId] = useState<string | null>(null);
+  const [localExercisesPerWorkout, setLocalExercisesPerWorkout] = useState<number>(
+    () => state.profile.exercisesPerWorkout ?? 6
+  );
+  const [customExtrasByCombo, setCustomExtrasByCombo] = useState<
+    Record<string, string[]>
+  >(() => loadCustomComboExtras());
+  const [showExtraPicker, setShowExtraPicker] = useState(false);
+  const [extraPickerMuscle, setExtraPickerMuscle] = useState<MuscleGroupId>("costas");
+
+  useEffect(() => {
+    if (typeof state.profile.exercisesPerWorkout === "number") {
+      setLocalExercisesPerWorkout(state.profile.exercisesPerWorkout);
+    }
+  }, [state.profile.exercisesPerWorkout]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        CUSTOM_EXTRAS_STORAGE_KEY,
+        JSON.stringify(customExtrasByCombo)
+      );
+    } catch {
+      // Ignore storage errors
+    }
+  }, [customExtrasByCombo]);
+
+  const targetExercisesPerWorkout = Math.max(
+    6,
+    Math.min(12, state.profile.exercisesPerWorkout ?? localExercisesPerWorkout)
+  );
+
+  const handleSetExercisesPerWorkout = (nextCount: number) => {
+    const clamped = Math.max(6, Math.min(12, nextCount));
+    setLocalExercisesPerWorkout(clamped);
+    onUpdateProfile?.({ exercisesPerWorkout: clamped });
+    onToast(
+      clamped > 6
+        ? `Treino expandido para ${clamped} exercícios (também aplicado ao Personal IA)!`
+        : "Volume ajustado para o padrão de 6 exercícios por treino.",
+      "info"
+    );
+  };
 
   // Cardio Exercise Tracker State
   const [cardioEquipmentId, setCardioEquipmentId] = useState<string>(
@@ -396,6 +525,81 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
     [state.activeComboId]
   );
 
+  const manualExtrasForActiveCombo = useMemo(
+    () => customExtrasByCombo[activeCombo.id] || [],
+    [customExtrasByCombo, activeCombo.id]
+  );
+
+  const effectiveComboExerciseIds = useMemo(() => {
+    const base = [...activeCombo.exerciseIds];
+    const usedResolved = new Set(
+      base.map((id) => state.swappedExercises[id] || id)
+    );
+    const result = [...base];
+
+    // 1. Add user's manually picked extras first
+    for (const extraId of manualExtrasForActiveCombo) {
+      if (!EXERCISE_MAP[extraId]) continue;
+      if (result.includes(extraId) || usedResolved.has(extraId)) continue;
+      result.push(extraId);
+      usedResolved.add(extraId);
+    }
+
+    // 2. Auto-complement up to targetExercisesPerWorkout from smart combo pool
+    const desiredCount = Math.max(
+      result.length,
+      Math.max(base.length, targetExercisesPerWorkout)
+    );
+    if (result.length < desiredCount) {
+      const pool = [
+        ...(COMBO_EXTRA_POOL[activeCombo.id] || []),
+        ...EXERCISES.map((e) => e.id),
+      ];
+      for (const candidateId of pool) {
+        if (result.length >= desiredCount) break;
+        if (!EXERCISE_MAP[candidateId]) continue;
+        if (result.includes(candidateId) || usedResolved.has(candidateId)) continue;
+        result.push(candidateId);
+        usedResolved.add(candidateId);
+      }
+    }
+
+    return result;
+  }, [
+    activeCombo,
+    manualExtrasForActiveCombo,
+    targetExercisesPerWorkout,
+    state.swappedExercises,
+  ]);
+
+  const effectiveComboDurationMin = useMemo(() => {
+    const addedCount = Math.max(
+      0,
+      effectiveComboExerciseIds.length - activeCombo.exerciseIds.length
+    );
+    return activeCombo.durationMin + addedCount * 5;
+  }, [activeCombo, effectiveComboExerciseIds.length]);
+
+  const handleToggleManualExtra = (exerciseId: string) => {
+    const isAlreadyBase = activeCombo.exerciseIds.includes(exerciseId);
+    if (isAlreadyBase) return;
+    setCustomExtrasByCombo((prev) => {
+      const current = prev[activeCombo.id] || [];
+      const exists = current.includes(exerciseId);
+      const next = exists
+        ? current.filter((id) => id !== exerciseId)
+        : [...current, exerciseId];
+      const exName = EXERCISE_MAP[exerciseId]?.name || "Exercício";
+      onToast(
+        exists
+          ? `"${exName}" removido dos extras do treino.`
+          : `"${exName}" adicionado ao treino "${activeCombo.title}"!`,
+        exists ? "info" : "success"
+      );
+      return { ...prev, [activeCombo.id]: next };
+    });
+  };
+
   const muscleExercises = useMemo(
     () => EXERCISES.filter((e) => e.muscleGroup === selectedMuscle),
     [selectedMuscle]
@@ -412,7 +616,7 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   const comboProgress = useMemo(() => {
     let done = 0;
     let total = 0;
-    for (const origId of activeCombo.exerciseIds) {
+    for (const origId of effectiveComboExerciseIds) {
       const displayId = state.swappedExercises[origId] || origId;
       const log = state.exerciseLogs[displayId];
       if (!log) continue;
@@ -420,7 +624,7 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
       done += log.completedSets.filter(Boolean).length;
     }
     return { done, total, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
-  }, [activeCombo, state.exerciseLogs, state.swappedExercises]);
+  }, [effectiveComboExerciseIds, state.exerciseLogs, state.swappedExercises]);
 
   const handleToggleWithAutoRest = (exerciseId: string, setIndex: number, defaultRest: number) => {
     const checked = onToggleSet(exerciseId, setIndex);
@@ -434,11 +638,11 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
     onFinishWorkout(
       activeCombo.title,
       activeCombo.focusTag,
-      activeCombo.exerciseIds,
-      activeCombo.durationMin
+      effectiveComboExerciseIds,
+      effectiveComboDurationMin
     );
     setFinishBanner(
-      `Treino "${activeCombo.title}" concluído e registrado em Evolução! Suas cargas foram salvas.`
+      `Treino "${activeCombo.title}" (${effectiveComboExerciseIds.length} exercícios) concluído e registrado em Evolução! Suas cargas foram salvas.`
     );
     onToast(`Treino "${activeCombo.title}" salvo na Evolução!`, "success");
     window.setTimeout(() => setFinishBanner(null), 5000);
@@ -985,49 +1189,209 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
             </div>
           </div>
 
-          {/* Active Workout Header & Progress */}
-          <div className="rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] shadow-sm dark:shadow-none p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 text-xs text-[#475569] dark:text-[#A1A1AA]">
-                <Dumbbell className="w-4 h-4 text-[#FF6B00]" />
-                <span>Modo Treino Ativo</span>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono tabular-nums">
-                  {comboProgress.done}/{comboProgress.total} séries concluídas
-                </span>
+          {/* Active Workout Header & Exercise Volume Selector */}
+          <div className="rounded-2xl bg-white dark:bg-[#151518] border border-[#E2E8F0] dark:border-[#26262B] shadow-sm dark:shadow-none p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#475569] dark:text-[#A1A1AA]">
+                  <Dumbbell className="w-4 h-4 text-[#FF6B00]" />
+                  <span>Modo Treino Ativo</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono font-semibold tabular-nums text-[#0F172A] dark:text-white">
+                    {effectiveComboExerciseIds.length} exercícios · ~{effectiveComboDurationMin}m
+                  </span>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono tabular-nums">
+                    {comboProgress.done}/{comboProgress.total} séries concluídas
+                  </span>
+                </div>
+                <h3 className="mt-1 text-xl font-extrabold text-[#0F172A] dark:text-white">{activeCombo.title}</h3>
+                <div className="mt-2.5 h-2 w-full max-w-md rounded-full bg-[#E2E8F0] dark:bg-[#26262B] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#FF6B00] transition-[width] duration-300"
+                    style={{ width: `${comboProgress.pct}%` }}
+                  />
+                </div>
               </div>
-              <h3 className="mt-1 text-xl font-extrabold text-[#0F172A] dark:text-white">{activeCombo.title}</h3>
-              <div className="mt-2.5 h-2 w-full max-w-md rounded-full bg-[#E2E8F0] dark:bg-[#26262B] overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-[#FF6B00] transition-[width] duration-300"
-                  style={{ width: `${comboProgress.pct}%` }}
-                />
+
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSubTab("modalidades")}
+                  className="min-h-[48px] px-4 py-3 rounded-xl bg-[#F8FAFC] dark:bg-[#1C1C21] hover:bg-[#FF6B00]/10 border border-[#E2E8F0] dark:border-[#26262B] hover:border-[#FF6B00] text-xs sm:text-sm font-bold text-[#0F172A] dark:text-white flex items-center justify-center gap-2 transition-all whitespace-nowrap cursor-pointer"
+                >
+                  <Flame className="w-4 h-4 text-[#FF6B00]" />
+                  <span>Controle de Cardio</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCompleteActiveCombo}
+                  className="min-h-[48px] px-5 py-3 rounded-xl bg-[#FF6B00] hover:bg-[#F97316] active:scale-[0.98] text-sm font-bold text-white flex items-center justify-center gap-2 transition-all whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Finalizar Treino</span>
+                </button>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => setSubTab("modalidades")}
-                className="min-h-[48px] px-4 py-3 rounded-xl bg-[#F8FAFC] dark:bg-[#1C1C21] hover:bg-[#FF6B00]/10 border border-[#E2E8F0] dark:border-[#26262B] hover:border-[#FF6B00] text-xs sm:text-sm font-bold text-[#0F172A] dark:text-white flex items-center justify-center gap-2 transition-all whitespace-nowrap cursor-pointer"
-              >
-                <Flame className="w-4 h-4 text-[#FF6B00]" />
-                <span>Controle de Cardio</span>
-              </button>
+            {/* Opção para aumentar o número de exercícios por treino */}
+            <div className="pt-3.5 border-t border-[#E2E8F0] dark:border-[#26262B] flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold text-[#0F172A] dark:text-white">
+                  Achou pouco {activeCombo.exerciseIds.length} exercícios? Aumente o volume do treino
+                </p>
+                <p className="text-[11px] text-[#64748B] dark:text-[#A1A1AA]">
+                  Escolha quantos exercícios deseja fazer neste treino ou selecione aparelhos extras manualmente.
+                </p>
+              </div>
 
-              <button
-                type="button"
-                onClick={handleCompleteActiveCombo}
-                className="min-h-[48px] px-5 py-3 rounded-xl bg-[#FF6B00] hover:bg-[#F97316] active:scale-[0.98] text-sm font-bold text-white flex items-center justify-center gap-2 transition-all whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Finalizar Treino</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-[#F8FAFC] dark:bg-[#0B0B0D] border border-[#E2E8F0] dark:border-[#26262B]">
+                  <button
+                    type="button"
+                    disabled={targetExercisesPerWorkout <= 6}
+                    onClick={() => handleSetExercisesPerWorkout(targetExercisesPerWorkout - 1)}
+                    aria-label="Diminuir número de exercícios"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white hover:bg-white dark:hover:bg-[#151518] disabled:opacity-35 transition-colors cursor-pointer"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+
+                  {EXERCISE_COUNT_PRESETS.map((count) => {
+                    const active = targetExercisesPerWorkout === count;
+                    return (
+                      <button
+                        key={count}
+                        type="button"
+                        onClick={() => handleSetExercisesPerWorkout(count)}
+                        className={`min-w-[34px] h-8 px-2 rounded-lg font-mono text-xs font-bold tabular-nums transition-colors cursor-pointer whitespace-nowrap ${
+                          active
+                            ? "bg-[#FF6B00] text-white"
+                            : "text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white hover:bg-white dark:hover:bg-[#151518]"
+                        }`}
+                      >
+                        {count}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    disabled={targetExercisesPerWorkout >= 12}
+                    onClick={() => handleSetExercisesPerWorkout(targetExercisesPerWorkout + 1)}
+                    aria-label="Aumentar número de exercícios"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white hover:bg-white dark:hover:bg-[#151518] disabled:opacity-35 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowExtraPicker((prev) => !prev)}
+                  className={`min-h-[40px] px-3.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+                    showExtraPicker
+                      ? "bg-[#0F172A] dark:bg-white text-white dark:text-[#0F172A] border-[#0F172A] dark:border-white"
+                      : "bg-[#F8FAFC] dark:bg-[#0B0B0D] hover:bg-[#F1F5F9] dark:hover:bg-[#1C1C21] border-[#E2E8F0] dark:border-[#26262B] text-[#0F172A] dark:text-white"
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5 text-[#FF6B00]" />
+                  <span>
+                    {showExtraPicker ? "Fechar extras" : "Escolher extras"}
+                  </span>
+                </button>
+              </div>
             </div>
+
+            {/* Inline Manual Extra Exercise Picker */}
+            {showExtraPicker && (
+              <div className="pt-3.5 border-t border-[#E2E8F0] dark:border-[#26262B] space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {MUSCLE_GROUPS.map((grp) => {
+                      const active = extraPickerMuscle === grp.id;
+                      return (
+                        <button
+                          key={grp.id}
+                          type="button"
+                          onClick={() => setExtraPickerMuscle(grp.id)}
+                          className={`min-h-[32px] px-2.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                            active
+                              ? "bg-[#FF6B00] border-[#FF6B00] text-white"
+                              : "bg-[#F8FAFC] dark:bg-[#0B0B0D] border-[#E2E8F0] dark:border-[#26262B] text-[#475569] dark:text-[#A1A1AA] hover:text-[#0F172A] dark:hover:text-white"
+                          }`}
+                        >
+                          {grp.shortLabel}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {manualExtrasForActiveCombo.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomExtrasByCombo((prev) => ({
+                          ...prev,
+                          [activeCombo.id]: [],
+                        }));
+                        onToast("Exercícios extras manuais removidos deste treino.", "info");
+                      }}
+                      className="text-xs font-semibold text-[#64748B] hover:text-red-600 dark:hover:text-red-400 cursor-pointer whitespace-nowrap"
+                    >
+                      Limpar extras ({manualExtrasForActiveCombo.length})
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {EXERCISES.filter((ex) => ex.muscleGroup === extraPickerMuscle).map(
+                    (ex) => {
+                      const isBase = activeCombo.exerciseIds.includes(ex.id);
+                      const isManualAdded = manualExtrasForActiveCombo.includes(ex.id);
+                      const isAutoIncluded =
+                        !isBase &&
+                        !isManualAdded &&
+                        effectiveComboExerciseIds.includes(ex.id);
+
+                      return (
+                        <button
+                          key={ex.id}
+                          type="button"
+                          disabled={isBase}
+                          onClick={() => handleToggleManualExtra(ex.id)}
+                          className={`min-h-[42px] px-3 py-2 rounded-xl border text-left text-xs flex items-center justify-between gap-2 transition-colors ${
+                            isBase
+                              ? "bg-[#F1F5F9] dark:bg-[#111114] border-[#E2E8F0] dark:border-[#26262B] text-[#94A3B8] dark:text-[#71717A] cursor-not-allowed"
+                              : isManualAdded
+                              ? "bg-emerald-500/12 border-emerald-500/45 text-[#0F172A] dark:text-white cursor-pointer"
+                              : isAutoIncluded
+                              ? "bg-[#FF6B00]/10 border-[#FF6B00]/40 text-[#0F172A] dark:text-white cursor-pointer"
+                              : "bg-[#F8FAFC] dark:bg-[#0B0B0D] border-[#E2E8F0] dark:border-[#26262B] hover:border-[#FF6B00] text-[#0F172A] dark:text-white cursor-pointer"
+                          }`}
+                        >
+                          <span className="truncate font-medium">{ex.name}</span>
+                          <span className="shrink-0 font-semibold text-[11px]">
+                            {isBase
+                              ? "Base"
+                              : isManualAdded
+                              ? "Extra ✓"
+                              : isAutoIncluded
+                              ? "Auto"
+                              : "+ Adicionar"}
+                          </span>
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Active Combo Exercises */}
-          {renderExerciseList(activeCombo.exerciseIds)}
+          {renderExerciseList(effectiveComboExerciseIds)}
 
           {/* Mandatory Goal-Tailored Cardio & Stretching for Active Combo */}
           {renderGoalCardioAndStretchingBlock(activeCombo.id, activeCombo.title)}

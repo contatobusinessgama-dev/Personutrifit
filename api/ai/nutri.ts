@@ -2,11 +2,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 const GEMINI_MODELS = [
-  "gemini-4-hydrogen",
   "gemini-3.1-flash-lite",
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
-  "gemini-flash-latest",
+  "gemini-4-hydrogen",
 ] as const;
 
 const FIRST_CHUNK_TIMEOUT_MS = 18000;
@@ -457,7 +456,8 @@ export default async function handler(
         errLower.includes("unauthenticated") ||
         errLower.includes("unauthorized");
       const willRetry = !emitted && !isAuthErr && i < modelsToTry.length - 1;
-      console.error("[Bianco Fit Nutri IA Model Attempt Error]", {
+      const logFn = willRetry ? console.warn : console.error;
+      logFn("[Bianco Fit Nutri IA Model Attempt Error]", {
         timestamp: new Date().toISOString(),
         endpoint: "/api/ai/nutri",
         model: candidate,
@@ -465,7 +465,7 @@ export default async function handler(
         emittedAnyChunk: emitted,
         durationMs: Date.now() - modelStartedAt,
         rawMessage: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
+        ...(willRetry ? {} : { stack: err instanceof Error ? err.stack : undefined }),
       });
       if (willRetry) {
         continue;

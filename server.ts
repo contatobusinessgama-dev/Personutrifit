@@ -54,7 +54,7 @@ async function streamGeminiResponse(
   res.setHeader("Connection", "keep-alive");
 
   try {
-    await generateStreamWithFallback(
+    const { model: usedModel } = await generateStreamWithFallback(
       {
         preferredModel,
         contents: mapContents(history, message),
@@ -68,7 +68,7 @@ async function streamGeminiResponse(
       endpoint
     );
 
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true, model: usedModel })}\n\n`);
     res.end();
   } catch (err) {
     const parsed = formatFriendlyAiError(err, {

@@ -1310,6 +1310,7 @@ export default function App() {
                   <WorkoutsTab
                     state={state}
                     onUpdateGoals={updateGoals}
+                    onUpdateProfile={updateProfile}
                     onSelectCombo={setActiveComboId}
                     onUpdateExerciseLog={updateExerciseLog}
                     onToggleSet={toggleExerciseSet}
