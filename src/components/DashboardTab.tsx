@@ -48,6 +48,7 @@ import { AchievementsFeed } from "./AchievementsFeed";
 import { DashboardCharts } from "./DashboardCharts";
 import { GoalSelector } from "./GoalSelector";
 import { StudentAvatar } from "./StudentAvatar";
+import { WeeklyPerformanceSummaryCard } from "./WeeklyPerformanceSummaryCard";
 
 const HERO_IMAGE = "/src/assets/images/bianco_gym_hero_1795053835269.jpg";
 
@@ -958,6 +959,17 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </button>
         </motion.div>
       </motion.section>
+
+      {/* ROW 2B: Resumo de Performance Semanal (Personal IA) */}
+      <motion.div variants={dashboardSectionVariants}>
+        <WeeklyPerformanceSummaryCard
+          state={state}
+          metabolism={metabolism}
+          streakDays={streakDays}
+          onNavigateTab={onNavigateTab}
+          onToast={onToast}
+        />
+      </motion.div>
 
       {/* LEMBRETE PARA BEBER ÁGUA — Painel Inteligente de Hidratação */}
       <motion.section
