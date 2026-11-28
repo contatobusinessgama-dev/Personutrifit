@@ -1,5 +1,26 @@
 export type PhotoAngle = "front" | "side" | "back";
 
+export interface AiBodyMeasurementsEstimate {
+  analyzedAt: string;
+  anglesAnalyzed: PhotoAngle[];
+  neckCm: number;
+  chestCm: number;
+  waistCm: number;
+  abdomenCm: number;
+  hipCm: number;
+  armRightCm: number;
+  armLeftCm: number;
+  thighRightCm: number;
+  thighLeftCm: number;
+  calfCm: number;
+  estimatedBodyFatPct?: number;
+  confidence: "alta" | "media" | "baixa";
+  visualSummary: string;
+  evolutionNote?: string;
+  photoTip?: string;
+  savedToEvolutionDate?: string;
+}
+
 export interface WeeklyPhotoRecord {
   id: string;
   weekLabel: string;
@@ -7,6 +28,8 @@ export interface WeeklyPhotoRecord {
   weightKg?: number;
   note?: string;
   photos: Partial<Record<PhotoAngle, string>>;
+  photoDates?: Partial<Record<PhotoAngle, string>>;
+  aiMeasurements?: AiBodyMeasurementsEstimate;
   updatedAt: string;
 }
 

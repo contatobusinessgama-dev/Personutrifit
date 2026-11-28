@@ -19,6 +19,12 @@ import {
   generateStreamWithFallback,
   hasGeminiApiKey,
 } from "./server/gemini.ts";
+import {
+  analyzeBodyMeasurementsFromPhotos,
+  BodyMeasurementPhotoInput,
+  BodyMeasurementProfileInput,
+  PreviousBodyMeasurementInput,
+} from "./server/bodyMeasurements.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,7 +100,7 @@ async function startServer() {
     res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
     next();
   });
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({ limit: "6mb" }));
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, models: GEMINI_MODELS, aiConfigured: hasGeminiApiKey() });
@@ -152,6 +158,65 @@ async function startServer() {
       message.trim(),
       model
     );
+  });
+
+  app.post("/api/ai/body-measurements", async (req, res) => {
+    const startedAt = Date.now();
+    const { photos, profile, photoDate, previousMeasurements } = req.body as {
+      photos?: BodyMeasurementPhotoInput;
+      profile?: BodyMeasurementProfileInput;
+      photoDate?: string;
+      previousMeasurements?: PreviousBodyMeasurementInput | null;
+    };
+
+    if (!photos || (!photos.front && !photos.side && !photos.back)) {
+      res.status(400).json({
+        error: "Envie pelo menos uma foto (Frente, Lado ou Costas) para a IA medir suas circunferências.",
+      });
+      return;
+    }
+
+    if (!hasGeminiApiKey()) {
+      const parsed = formatFriendlyAiError(new Error("MISSING_API_KEY"), {
+        endpoint: "/api/ai/body-measurements",
+        durationMs: Date.now() - startedAt,
+      });
+      res.status(parsed.status).json({
+        error: parsed.message,
+        code: parsed.code,
+        status: parsed.status,
+        category: parsed.category,
+      });
+      return;
+    }
+
+    try {
+      const result = await analyzeBodyMeasurementsFromPhotos({
+        photos,
+        profile,
+        photoDate,
+        previousMeasurements,
+      });
+      res.json(result);
+    } catch (err) {
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      if (rawMsg.includes("NO_VALID_PHOTOS")) {
+        res.status(400).json({
+          error: "Nenhuma imagem válida encontrada. Envie fotos em formato JPG, PNG ou WebP.",
+        });
+        return;
+      }
+      const parsed = formatFriendlyAiError(err, {
+        endpoint: "/api/ai/body-measurements",
+        durationMs: Date.now() - startedAt,
+      });
+      res.status(parsed.status).json({
+        error: parsed.message,
+        code: parsed.code,
+        status: parsed.status,
+        category: parsed.category,
+      });
+    }
   });
 
   const distPath = path.resolve(__dirname, "dist");

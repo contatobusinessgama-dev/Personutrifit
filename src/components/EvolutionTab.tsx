@@ -422,8 +422,14 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
         </div>
       </section>
 
-      {/* CARTÃO DE FOTOS DA EVOLUÇÃO SEMANAL: FRENTE, LADO E COSTAS */}
-      <WeeklyPhotosCard currentWeightKg={latestWeight} onToast={onToast} />
+      {/* CARTÃO DE FOTOS DA EVOLUÇÃO SEMANAL: FRENTE, LADO E COSTAS + MEDIÇÃO IA */}
+      <WeeklyPhotosCard
+        profile={state.profile}
+        measurements={state.measurements}
+        currentWeightKg={latestWeight}
+        onAddMeasurement={onAddMeasurement}
+        onToast={onToast}
+      />
 
       {/* PREMIAÇÃO POR QUILO PERDIDO: MEDALHAS DE BRONZE (1 KG), PRATA (5 KG) E OURO (10 KG) COM FOGOS */}
       <section
