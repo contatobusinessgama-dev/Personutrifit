@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { computeWeightLossStats } from "../data/achievements";
 import { useTheme } from "./ErrorBoundary";
+import { WeeklyPhotosCard } from "./WeeklyPhotosCard";
 import { getTodayIso } from "../hooks/useBiancoState";
 import { BiancoAppState, BodyMeasurement, StudentProfile, TabId } from "../types";
 
@@ -420,6 +421,9 @@ export const EvolutionTab: React.FC<EvolutionTabProps> = ({
           </p>
         </div>
       </section>
+
+      {/* CARTÃO DE FOTOS DA EVOLUÇÃO SEMANAL: FRENTE, LADO E COSTAS */}
+      <WeeklyPhotosCard currentWeightKg={latestWeight} onToast={onToast} />
 
       {/* PREMIAÇÃO POR QUILO PERDIDO: MEDALHAS DE BRONZE (1 KG), PRATA (5 KG) E OURO (10 KG) COM FOGOS */}
       <section
